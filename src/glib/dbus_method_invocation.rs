@@ -19,7 +19,8 @@ impl GDBusMethodInvocation {
 	{
 		unsafe {
 			g_dbus_method_invocation_return_dbus_error(self.ptr,
-				error_name.as_ptr(), error_msg.as_ptr());
+				error_name.as_ptr(),
+				error_msg.as_ptr());
 		}
 	}
 }

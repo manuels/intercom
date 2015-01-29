@@ -68,9 +68,9 @@ extern "C" {
 
 	pub fn g_signal_connect_data(instance: *mut i32,
 				detailed_signal: *const u8,
-				c_handler: Option<fn()>,
+				c_handler: Option<extern fn()>,
 				data: *mut i32,
-				destroy_data: Option<fn()>,
+				destroy_data: Option<extern fn()>,
 				connect_flags: i32) -> c_ulong;
 }
 

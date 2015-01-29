@@ -22,6 +22,7 @@ use bindings_ganymed::{ganymed_skeleton_new};
 
 use glib::dbus_method_invocation::GDBusMethodInvocation;
 use glib::g_variant::GVariant;
+use glib::g_object::GObject;
 
 use std::os::unix::Fd;
 use std::time::duration::Duration;
@@ -121,23 +122,20 @@ impl DbusService {
 
 	fn export_object_path(&self, obj_path: &str, tx: Sender<DbusRequest>)
 	{
-		let skeleton = unsafe { ganymed_skeleton_new() as *mut i32 };
+		let ptr = unsafe { ganymed_skeleton_new() as *mut i32 };
+		let obj = GObject::from_ptr(ptr);
 
 		unsafe {
 			let mut error = 0 as *mut i32;
-			let res = g_dbus_interface_skeleton_export(skeleton,
+			let res = g_dbus_interface_skeleton_export(ptr,
 				self.ptr,
 				obj_path.as_ptr(),
 				error);
 			assert!(error.is_null());
 
-			let res = g_signal_connect_data(skeleton,
-				"handle_connect".as_ptr(),
+			obj.connect_signal("handle_connect",
 				mem::transmute(connect_to_node),
-				mem::transmute(Box::new(tx)),
-				None,
-				1);
-			assert!(res > 0);
+				Box::new(tx));
 		}
 	}
 
