@@ -3,6 +3,7 @@ use libc::types::os::arch::c95::{c_int, c_uint, c_ulong, c_long};
 pub type gint = c_int;
 pub type guint = c_uint;
 pub type gboolean = gint;
+pub type guchar = u8;
 
 pub const FALSE: gboolean = 0;
 pub const TRUE:  gboolean = !FALSE;

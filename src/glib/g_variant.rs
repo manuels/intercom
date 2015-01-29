@@ -1,3 +1,4 @@
+use bindings_glib::guchar;
 use libc::types::os::arch::c95::{c_ulong,c_int};
 use std::mem;
 
@@ -11,7 +12,7 @@ extern "C" {
 
 	fn g_variant_get_fixed_array(value: *const c_int,
 		n_element: *mut gsize,
-		typ: *const u8
+		typ: gsize,
 	) -> *mut u8;
 
 	fn g_variant_n_children(value: *const c_int) -> gsize;
@@ -19,6 +20,7 @@ extern "C" {
 	fn g_variant_get_child_value(value: *const c_int, index: gsize)
 		-> *mut c_int;
 
+	fn g_variant_ref(value: *mut c_int);
 	fn g_variant_unref(value: *mut c_int);
 }
 
@@ -35,6 +37,19 @@ impl Drop for GVariant {
 }
 
 impl GVariant {
+	pub fn from_ptr(ptr: *mut c_int) -> GVariant {
+		assert!(mem::size_of::<gsize>() == mem::size_of::<usize>());
+
+		assert!(!ptr.is_null());
+
+		unsafe {
+			g_variant_ref(ptr);
+		}
+
+		GVariant{ptr:ptr}
+
+	}
+
 	pub fn from_vec(vec: Vec<u8>) -> GVariant {
 		assert!(mem::size_of::<gsize>() == mem::size_of::<usize>());
 
@@ -43,18 +58,20 @@ impl GVariant {
 			g_variant_new_fixed_array(typ, vec.as_slice().as_ptr(),
 				vec.len() as gsize, mem::size_of::<u8>() as gsize)
 		};
-		assert!(!ptr.is_null());
 
-		GVariant { ptr: ptr }
+		GVariant::from_ptr(ptr)
 	}
 
 	pub fn to_vec(&self) -> Vec<u8> {
+		// TODO assure type is ay!!
+
 		assert!(mem::size_of::<gsize>() == mem::size_of::<usize>());
 
+		let el_size = mem::size_of::<guchar>() as gsize;
 		let mut len = 0 as gsize;
+
 		let ptr = unsafe {
-			let typ = "y".as_ptr();
-			g_variant_get_fixed_array(self.ptr, &mut len, typ)
+			g_variant_get_fixed_array(self.ptr, &mut len, el_size)
 		};
 		assert!(!ptr.is_null());
 
@@ -78,13 +95,6 @@ impl GVariant {
 
 			vec
 		}
-	}
-
-	pub fn from_ptr(ptr: *mut c_int) -> GVariant {
-		assert!(mem::size_of::<gsize>() == mem::size_of::<usize>());
-
-		assert!(!ptr.is_null());
-		GVariant{ptr:ptr}
 	}
 
 	pub unsafe fn as_ptr(&self) -> *mut c_int {

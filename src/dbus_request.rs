@@ -6,16 +6,28 @@ use time::SteadyTime;
 
 use ice::IceAgent;
 
-pub struct DbusRequest<'a> {
-	remote_public_key: &'a str,
-	port:              u16,
+pub struct DbusRequest {
+	remote_public_key: Vec<u8>,
+	port:              u32,
 	timeout:           Duration,
 }
 
-impl<'a> DbusRequest<'a> {
+impl DbusRequest {
+	pub fn new(remote_public_key: Vec<u8>,
+	           port:              u32,
+	           timeout:           u32)
+		-> DbusRequest
+	{
+		DbusRequest {
+			remote_public_key: remote_public_key,
+			port:              port,
+			timeout:           Duration::seconds(timeout as i64),
+		}
+	}
+
 	pub fn handle(&self, local_public_key: &str) -> Result<Fd,()>
 	{
-		let controlling_mode = (local_public_key > self.remote_public_key);
+		let controlling_mode = (local_public_key.as_bytes() > self.remote_public_key.as_slice());
 		let agent = try!(IceAgent::new(controlling_mode));
 
 		// TODO: async get and set credentials

@@ -8,7 +8,7 @@ use bindings_lunadht;
 use bindings_lunadht::{
 	luna_dht_proxy_new_for_bus_sync, luna_dht_call_get_sync,
 	luna_dht_call_put_sync};
-use g_variant::GVariant;
+use glib::g_variant::GVariant;
 
 const app_id:i32 = 8877;
 

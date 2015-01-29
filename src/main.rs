@@ -20,7 +20,8 @@ mod ice;
 mod bindings_lunadht;
 mod bindings_glib;
 mod bindings_ganymed;
-mod g_variant;
+mod glib;
+mod from_pointer;
 
 trait DbusResponder {
 	fn send(&self, fd: Fd) -> Result<(),()>;
