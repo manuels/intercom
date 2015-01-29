@@ -1,31 +1,22 @@
-use std::ptr;
-use libc::types::os::arch::c95::{c_ulong,c_int};
-use libc::types::common::c95::c_void;
+#![allow(dead_code)]
+
 use std::time::duration::Duration;
 
 use ::DHT;
+use bindings_glib::GBusType::*;
 use bindings_lunadht;
 use bindings_lunadht::{
 	luna_dht_proxy_new_for_bus_sync, luna_dht_call_get_sync,
 	luna_dht_call_put_sync};
 use glib::g_variant::GVariant;
 
-const app_id:i32 = 8877;
+const APP_ID:i32 = 8877;
 
 struct LunaDHT {
 	proxy: *mut bindings_lunadht::_LunaDHT,
 }
 
 // TODO implement Drop
-
-bitflags! {
-    flags GBusType: c_int {
-        const G_BUS_TYPE_STARTER = -1,
-        const G_BUS_TYPE_NONE    =  0,
-        const G_BUS_TYPE_SYSTEM  =  1,
-        const G_BUS_TYPE_SESSION =  2,
-    }
-}
 
 impl LunaDHT {
 	pub fn new() -> LunaDHT {
@@ -55,11 +46,11 @@ impl DHT for LunaDHT {
 		let mut out = 0 as *mut i32;
 		let mut err = 0 as *mut i32;
 
-		let mut gkey = GVariant::from_vec(key);
+		let gkey = GVariant::from_vec(key);
 
 		let res = unsafe {
 			luna_dht_call_get_sync(self.proxy,
-				app_id, gkey.as_ptr(), &mut out, 0 as *mut i32, &mut err)
+				APP_ID, gkey.as_ptr(), &mut out, 0 as *mut i32, &mut err)
 		};
 		if res == 0 {
 			return Err(());
@@ -74,11 +65,11 @@ impl DHT for LunaDHT {
 		let mut err = 0 as *mut i32;
 		let ttl_sec = ttl.num_seconds() as i32;
 
-		let mut gkey = GVariant::from_vec(key);
-		let mut gvalue = GVariant::from_vec(value);
+		let gkey = GVariant::from_vec(key);
+		let gvalue = GVariant::from_vec(value);
 
 		let res = unsafe {
-			luna_dht_call_put_sync(self.proxy, app_id, gkey.as_ptr(),
+			luna_dht_call_put_sync(self.proxy, APP_ID, gkey.as_ptr(),
 				gvalue.as_ptr(), ttl_sec, 0 as *mut i32, &mut err)
 		};
 		if res == 0 {

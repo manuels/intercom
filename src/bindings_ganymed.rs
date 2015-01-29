@@ -1,6 +1,7 @@
-extern crate libc;
-use std::mem;
+#![allow(dead_code)]
+#![allow(unstable)]
 
+extern crate libc;
 
 /*
 struct _Ganymed

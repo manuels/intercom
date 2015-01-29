@@ -1,3 +1,5 @@
+#![allow(unstable)]
+
 use std::ffi;
 use std::str;
 

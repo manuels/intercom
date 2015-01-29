@@ -1,8 +1,9 @@
-use bindings_glib::guchar;
-use libc::types::os::arch::c95::{c_ulong,c_int};
+#![allow(unstable)]
+
+use bindings_glib::{gsize,guchar};
+use libc::types::os::arch::c95::c_int;
 use std::mem;
 
-type gsize = c_ulong;
 extern "C" {
 	fn g_variant_new_fixed_array(typ: *const u8,
 		elements: *const u8,

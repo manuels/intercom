@@ -1,15 +1,20 @@
-use libc::types::os::arch::c95::{c_int, c_uint, c_ulong, c_long};
+#![allow(dead_code)]
+#![allow(non_snake_case)]
+#![allow(non_camel_case_types)]
+
+use libc::types::os::arch::c95::{c_int, c_uint, c_ulong};
 
 pub type gint = c_int;
 pub type guint = c_uint;
 pub type gboolean = gint;
+pub type gsize = c_ulong;
 pub type guchar = u8;
 
 pub const FALSE: gboolean = 0;
 pub const TRUE:  gboolean = !FALSE;
 
 pub mod GBusType {
-	use libc::types::os::arch::c95::{c_int, c_uint};
+	use libc::types::os::arch::c95::c_int;
 
 	bitflags! {
 		flags GBusType: c_int {
@@ -22,7 +27,7 @@ pub mod GBusType {
 }
 
 pub mod GBusNameOwnerFlags {
-	use libc::types::os::arch::c95::{c_int, c_uint};
+	use libc::types::os::arch::c95::c_int;
 
 	bitflags! {
 		flags GBusNameOwnerFlags: c_int {
@@ -75,7 +80,7 @@ extern "C" {
 }
 
 pub mod GDBusCapabilityFlags {
-	use libc::types::os::arch::c95::{c_int, c_uint};
+	use libc::types::os::arch::c95::c_int;
 
 	bitflags! {
 		flags GDBusCapabilityFlags: c_int {

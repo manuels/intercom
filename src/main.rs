@@ -1,4 +1,5 @@
 #![feature(link_args)]
+#![allow(unstable)]
 
 #[macro_use] extern crate rustc_bitflags;
 #[macro_use] extern crate log;
@@ -10,7 +11,6 @@ use std::os::unix::Fd;
 use std::sync::Future;
 use std::time::duration::Duration;
 
-use dbus_request::DbusRequest;
 use dbus_service::DbusService;
 
 mod dht;
