@@ -77,6 +77,8 @@ extern "C" {
 				data: *mut i32,
 				destroy_data: Option<extern fn()>,
 				connect_flags: i32) -> c_ulong;
+
+	pub fn g_object_unref(instance: *mut i32);
 }
 
 pub mod GDBusCapabilityFlags {

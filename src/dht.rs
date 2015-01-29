@@ -4,6 +4,7 @@ use std::time::duration::Duration;
 
 use ::DHT;
 use bindings_glib::GBusType::*;
+use bindings_glib::g_object_unref;
 use bindings_lunadht;
 use bindings_lunadht::{
 	luna_dht_proxy_new_for_bus_sync, luna_dht_call_get_sync,
@@ -16,7 +17,13 @@ struct LunaDHT {
 	proxy: *mut bindings_lunadht::_LunaDHT,
 }
 
-// TODO implement Drop
+impl Drop for LunaDHT {
+	fn drop(&mut self) {
+		unsafe {
+			g_object_unref(self.proxy as *mut i32);
+		}		
+	}
+}
 
 impl LunaDHT {
 	pub fn new() -> LunaDHT {
