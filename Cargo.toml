@@ -1,0 +1,13 @@
+[package]
+name = "main"
+version = "0.0.1"
+authors = ["Manuel Schölling <manuel.schoelling@gmx.de>"]
+
+[dependencies.openssl]
+git = "https://github.com/sfackler/rust-openssl.git"
+
+[dependencies.nice]
+git = "https://github.com/manuels/libnice.rs.git"
+
+[dependencies]
+time = "*"
