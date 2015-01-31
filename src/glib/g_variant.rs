@@ -51,7 +51,7 @@ impl GVariant {
 
 	}
 
-	pub fn from_vec(vec: Vec<u8>) -> GVariant {
+	pub fn from_vec(vec: &Vec<u8>) -> GVariant {
 		assert!(mem::size_of::<gsize>() == mem::size_of::<usize>());
 
 		let ptr = unsafe {

@@ -2,6 +2,7 @@
 
 use std::ffi;
 use std::str;
+use std::ffi::CString;
 
 pub trait FromUtf8Pointer {
 	unsafe fn from_utf8_pointer(ptr: &*const i8) -> Result<Self, str::Utf8Error>;
@@ -16,4 +17,8 @@ impl FromUtf8Pointer for String {
 
 		utf8.map(|s| {s.to_string()})
 	}
+}
+
+pub fn cstr(string: &str) -> CString {
+	CString::from_slice(string.as_bytes())
 }

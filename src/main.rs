@@ -22,28 +22,35 @@ mod bindings_glib;
 mod bindings_ganymed;
 mod glib;
 mod from_pointer;
+mod fake_dht;
+
+enum ConnectError {
+	REMOTE_CREDENTIALS_NOT_FOUND,
+	FOO,
+}
 
 trait DbusResponder {
-	fn send(&self, fd: Fd) -> Result<(),()>;
-	fn send_error<T>(&self, err:T) -> Result<(),()>;
+	fn respond(&self, fd: Fd) -> Result<(),()>;
+	fn respond_error(&self, err: ConnectError) -> Result<(),()>;
 }
 
 trait DHT {
-	fn get(&self, key: Vec<u8>) -> Result<Vec<Vec<u8>>,()>;
-	fn put(&self, key: Vec<u8>, value: Vec<u8>, ttl: Duration) ->  Result<(),()>;
+	fn get(&self, key: &Vec<u8>) -> Result<Vec<Vec<u8>>,()>;
+	fn put(&self, key: &Vec<u8>, value: &Vec<u8>, ttl: Duration) ->  Result<(),()>;
 }
 
 fn main() {
 	let mut dbus_service = DbusService::new("org.manuel.ganymed");
-	let local_public_key = "foobar";
+	let local_public_key = "(local_public_key)";
 	//TODO:
 	// - publish public key
 
-	for (request, responder) in dbus_service {
+	for request in dbus_service {
 		Future::spawn(move || {
-			request.handle(local_public_key)
-				.and_then(|fd| responder.send(fd))
-				.or_else(|err| responder.send_error(err))
+			match request.handle(local_public_key) {
+				Ok(fd) =>   request.respond(fd),
+				Err(err) => request.respond_error(err)
+			}
 		});
 	}
 }

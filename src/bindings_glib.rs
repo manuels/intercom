@@ -56,7 +56,7 @@ extern "C" {
 	pub fn g_type_init();
 
 	pub fn g_bus_own_name(bus_type: c_int,
-				name: *const u8 ,
+				name: *const i8,
 				flags: c_int,
 				bus_acquired_handler: Option<fn()>,
 				name_acquired_handler: Option<GBusNameAcquiredCallback>,
@@ -69,7 +69,7 @@ extern "C" {
 	pub fn g_dbus_interface_skeleton_export(skeleton: *mut i32,
 				conn: *mut i32,
 				object_path: *const u8,
-				error: *mut i32) -> c_int;
+				error: *mut *mut i32) -> c_int;
 
 	pub fn g_signal_connect_data(instance: *mut i32,
 				detailed_signal: *const u8,
@@ -79,6 +79,15 @@ extern "C" {
 				connect_flags: i32) -> c_ulong;
 
 	pub fn g_object_unref(instance: *mut i32);
+
+	pub fn  g_dbus_proxy_new_for_bus_sync(bus_type: c_int,
+				flags: c_int,
+				info:  *mut i32,
+				name:  *mut i32,
+				object_path:    *mut i32,
+				interface_name: *mut i32,
+				cancellable: *mut i32,
+				error: *mut *mut i32) -> *mut i32;
 }
 
 pub mod GDBusCapabilityFlags {

@@ -1,4 +1,4 @@
-use libc::types::os::arch::c95::{c_long};
+use libc::types::os::arch::c95::c_long;
 use std::thread::Thread;
 use std::mem;
 
@@ -16,10 +16,12 @@ use bindings_glib::{
 		g_dbus_connection_get_capabilities,
 		g_dbus_interface_skeleton_export};
 use bindings_ganymed::ganymed_skeleton_new;
+use ::ConnectError;
 
 use glib::dbus_method_invocation::GDBusMethodInvocation;
 use glib::g_variant::GVariant;
 use glib::g_object::GObject;
+use from_pointer::cstr;
 
 use std::os::unix::Fd;
 use std::sync::mpsc::{channel,Sender,Receiver};
@@ -52,11 +54,10 @@ extern fn connect_to_node(dbus_obj:  *mut i32,
 	assert!(!channel.is_null());
 
 	let invocation = GDBusMethodInvocation::new(invocation_ptr);
-	invocation.return_dbus_error("org.manuel.Ganymed.not_implemented", "msg");
 
 	let remote_public_key = GVariant::from_ptr(gvar_remote_public_key).to_vec();
 
-	let req = DbusRequest::new(remote_public_key, port, timeout);
+	let req = DbusRequest::new(invocation, remote_public_key, port, timeout);
 
 	unsafe {
 		if (*channel).send(req).is_err() {
@@ -104,7 +105,7 @@ impl DbusService {
 		let ptr = Box::new(tx);
 		let res = unsafe {
 			g_bus_own_name(bus_type.bits(),
-				service_name.as_ptr(),
+				cstr(service_name).as_ptr(),
 				flags.bits(),
 				None,
 				mem::transmute(Some(on_name_acquired)),
@@ -130,7 +131,7 @@ impl DbusService {
 			g_dbus_interface_skeleton_export(ptr,
 				self.ptr,
 				obj_path.as_ptr(),
-				error);
+				&mut error);
 			assert!(error.is_null());
 
 			obj.connect_signal("handle_connect",
@@ -149,10 +150,10 @@ impl DbusService {
 
 
 impl<'a> Iterator for DbusService {
-	type Item = (DbusRequest, DbusRespond);
+	type Item = DbusRequest;
 
-	fn next(&mut self) -> Option<(DbusRequest, DbusRespond)> {
-		self.rx.recv().ok().map(|req| (req, DbusRespond))
+	fn next(&mut self) -> Option<DbusRequest> {
+		self.rx.recv().ok()
 	}
 
 	fn size_hint(&self) -> (usize, Option<usize>) {
@@ -160,7 +161,25 @@ impl<'a> Iterator for DbusService {
 	}
 }
 
-impl ::DbusResponder for DbusRespond {
-	fn send(&self, fd: Fd) -> Result<(),()> { unimplemented!() }
-	fn send_error<T>(&self, err: T) -> Result<(),()> { unimplemented!() }
+impl ::DbusResponder for DbusRequest {
+	fn respond(&self, fd: Fd) -> Result<(),()> {
+/*
+ganymed_complete_connect(object: *mut _Ganymed,
+	invocation: *mut libc::c_int,
+	fd_list: *mut libc::c_int,
+	fd: *mut libc::c_int);
+*/
+		unimplemented!()
+	}
+
+	fn respond_error(&self, err: ::ConnectError) -> Result<(),()> {
+		let (name, msg) = match err {
+			ConnectError::REMOTE_CREDENTIALS_NOT_FOUND => 
+				("org.manuel.Ganymed.credentials_not_found", ""),
+			ConnectError::FOO =>
+				("org.manuel.Ganymed.not_implemented", ""),
+		};
+		self.invocation.return_dbus_error(name, msg);
+		Ok(())
+	}
 }
