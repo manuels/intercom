@@ -8,8 +8,6 @@ use std::io::MemWriter;
 use glib::dbus_method_invocation::GDBusMethodInvocation;
 use ::DHT;
 use ::ConnectError;
-use dht::LunaDHT;
-use fake_dht::FakeDHT;
 use ice::IceAgent;
 
 pub struct DbusRequest {
@@ -34,7 +32,8 @@ impl DbusRequest {
 		}
 	}
 
-	pub fn handle(&self, local_public_key: &str) -> Result<Fd,ConnectError>
+	pub fn handle<T: DHT>(&self, local_public_key: &str, dht: &T)
+		-> Result<Fd,ConnectError>
 	{
 		let controlling_mode = (local_public_key.as_bytes() > self.remote_public_key.as_slice());
 		let agent = try!(IceAgent::new(controlling_mode).map_err(|_|ConnectError::FOO));
@@ -44,35 +43,33 @@ impl DbusRequest {
 		let begin = SteadyTime::now();
 
 		while fd.is_err() && begin + self.timeout > SteadyTime::now() {
-			fd = self.establish_connection(&agent);
+			fd = self.establish_connection(&agent, dht);
 		}
 		fd
 	}
 
-	fn establish_connection(&self, agent: &IceAgent) -> Result<Fd,ConnectError>
+	fn establish_connection<T:DHT>(&self, agent: &IceAgent, dht:&T)
+		-> Result<Fd,ConnectError>
 	{
 		Ok(agent.get_local_credentials())
 			//.and_then(|c| self.encrypt(c))
-			.and_then(|c| self.publish_local_credentials(c))
-			.and_then(|_| self.lookup_remote_credentials())
+			.and_then(|c| self.publish_local_credentials(dht, c))
+			.and_then(|_| self.lookup_remote_credentials(dht))
 			.and_then(|l| self.decrypt(l))
 			//.and_then(select_most_recent)
 			.and_then(|c| self.p2p_connect(agent, c))
 			//.and_then(|c| self.ssl_connect(c))
 	}
 
-	fn publish_local_credentials(&self, credentials: Vec<u8>) -> Result<(),ConnectError> {
-		// TODO: append now_utc()
-		let dht = FakeDHT::new();
-
+	fn publish_local_credentials<T:DHT>(&self, dht: &T, credentials: Vec<u8>) -> Result<(),ConnectError> {
 		dht.put(&self.remote_public_key, &credentials,
 				Duration::minutes(5))
 			.map_err(|_| unimplemented!())
 	}
  
-	fn lookup_remote_credentials(&self) -> Result<Vec<Vec<u8>>,ConnectError> {
-		let dht = FakeDHT::new();
-		
+	fn lookup_remote_credentials<T:DHT>(&self, dht: &T)
+		-> Result<Vec<Vec<u8>>,ConnectError>
+	{
 		dht.get(&self.remote_public_key)
 			.map_err(|_| ConnectError::REMOTE_CREDENTIALS_NOT_FOUND)
 	}

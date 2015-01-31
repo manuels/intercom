@@ -12,6 +12,7 @@ use std::sync::Future;
 use std::time::duration::Duration;
 
 use dbus_service::DbusService;
+use fake_dht::FakeDHT;
 
 mod dht;
 mod dbus_service;
@@ -47,7 +48,8 @@ fn main() {
 
 	for request in dbus_service {
 		Future::spawn(move || {
-			match request.handle(local_public_key) {
+			let dht = FakeDHT::new();
+			match request.handle(local_public_key, &dht) {
 				Ok(fd) =>   request.respond(fd),
 				Err(err) => request.respond_error(err)
 			}
