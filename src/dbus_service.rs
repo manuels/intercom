@@ -17,8 +17,9 @@ use bindings_glib::{
 		g_dbus_interface_skeleton_export};
 use bindings_ganymed::ganymed_skeleton_new;
 use ::ConnectError;
+use ::DbusResponder;
 
-use glib::dbus_method_invocation::GDBusMethodInvocation;
+use glib::dbus_method_invocation::GDBusMethodInvocation as GInvocation;
 use glib::g_variant::GVariant;
 use glib::g_object::GObject;
 use from_pointer::cstr;
@@ -26,9 +27,9 @@ use from_pointer::cstr;
 use std::os::unix::Fd;
 use std::sync::mpsc::{channel,Sender,Receiver};
 
-pub struct DbusService {
+pub struct DbusService<R:DbusResponder> {
 	ptr: *mut i32,
-	rx: Receiver<DbusRequest>,
+	rx: Receiver<DbusRequest<R>>,
 }
 
 struct DbusRespond;
@@ -46,14 +47,14 @@ extern fn connect_to_node(dbus_obj:  *mut i32,
 			gvar_remote_public_key:  *mut i32,
 			port:                    guint,
 			timeout:                 guint,
-			channel:                 *mut Sender<DbusRequest>)
+			channel:                 *mut Sender<DbusRequest<GInvocation>>)
 	-> gboolean
 {
 	debug!("connect_to_node() invoked.");
 
 	assert!(!channel.is_null());
 
-	let invocation = GDBusMethodInvocation::new(invocation_ptr);
+	let invocation = GInvocation::new(invocation_ptr);
 
 	let remote_public_key = GVariant::from_ptr(gvar_remote_public_key).to_vec();
 
@@ -68,8 +69,8 @@ extern fn connect_to_node(dbus_obj:  *mut i32,
 	TRUE
 }
 
-impl DbusService {
-	pub fn new(service_name: &str) -> DbusService
+impl DbusService<GInvocation> {
+	pub fn new(service_name: &str) -> DbusService<GInvocation>
 	{
 		unsafe { g_type_init() };
 
@@ -121,7 +122,7 @@ impl DbusService {
 		conn as *mut i32
 	}
 
-	fn export_object_path(&self, obj_path: &str, tx: Sender<DbusRequest>)
+	fn export_object_path(&self, obj_path: &str, tx: Sender<DbusRequest<GInvocation>>)
 	{
 		let ptr = unsafe { ganymed_skeleton_new() as *mut i32 };
 		let obj = GObject::from_ptr(ptr);
@@ -149,10 +150,10 @@ impl DbusService {
 }
 
 
-impl<'a> Iterator for DbusService {
-	type Item = DbusRequest;
+impl<'a,R:DbusResponder+Send> Iterator for DbusService<R> {
+	type Item = DbusRequest<R>;
 
-	fn next(&mut self) -> Option<DbusRequest> {
+	fn next(&mut self) -> Option<DbusRequest<R>> {
 		self.rx.recv().ok()
 	}
 
@@ -161,7 +162,8 @@ impl<'a> Iterator for DbusService {
 	}
 }
 
-impl ::DbusResponder for DbusRequest {
+//impl ::DbusResponder for DbusRequest {
+impl ::DbusResponder for GInvocation {
 	fn respond(&self, fd: Fd) -> Result<(),()> {
 /*
 ganymed_complete_connect(object: *mut _Ganymed,
@@ -179,7 +181,7 @@ ganymed_complete_connect(object: *mut _Ganymed,
 			ConnectError::FOO =>
 				("org.manuel.Ganymed.not_implemented", ""),
 		};
-		self.invocation.return_dbus_error(name, msg);
+		self.return_dbus_error(name, msg);
 		Ok(())
 	}
 }

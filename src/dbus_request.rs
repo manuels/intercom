@@ -5,24 +5,24 @@ use std::os::unix::Fd;
 use time::SteadyTime;
 use std::io::MemWriter;
 
-use glib::dbus_method_invocation::GDBusMethodInvocation;
 use ::DHT;
 use ::ConnectError;
+use ::DbusResponder;
 use ice::IceAgent;
 
-pub struct DbusRequest {
-	pub invocation:        GDBusMethodInvocation,
+pub struct DbusRequest<R:DbusResponder> {
+	pub invocation:    R,
 	remote_public_key: Vec<u8>,
 	port:              u32,
 	timeout:           Duration,
 }
 
-impl DbusRequest {
-	pub fn new(invocation:        GDBusMethodInvocation,
+impl<R:DbusResponder> DbusRequest<R> {
+	pub fn new(invocation:        R,
 	           remote_public_key: Vec<u8>,
 	           port:              u32,
 	           timeout:           u32)
-		-> DbusRequest
+		-> DbusRequest<R>
 	{
 		DbusRequest {
 			invocation:        invocation,

@@ -50,8 +50,8 @@ fn main() {
 		Future::spawn(move || {
 			let dht = FakeDHT::new();
 			match request.handle(local_public_key, &dht) {
-				Ok(fd) =>   request.respond(fd),
-				Err(err) => request.respond_error(err)
+				Ok(fd) =>   request.invocation.respond(fd),
+				Err(err) => request.invocation.respond_error(err)
 			}
 		});
 	}
