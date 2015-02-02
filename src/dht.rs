@@ -71,7 +71,7 @@ impl DHT for LunaDHT {
 		Ok(results.to_vec_vec())
 	}
 
-	fn put(&self, key: &Vec<u8>, value: &Vec<u8>, ttl: Duration) -> Result<(),()>
+	fn put(&mut self, key: &Vec<u8>, value: &Vec<u8>, ttl: Duration) -> Result<(),()>
 	{
 		let mut err = 0 as *mut i32;
 		let ttl_sec = ttl.num_seconds() as i32;

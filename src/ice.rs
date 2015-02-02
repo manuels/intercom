@@ -1,3 +1,6 @@
+use std::os::unix::Fd;
+use std::sync::mpsc::{Sender,Receiver};
+use std::sync::Future;
 use std::thread::Thread;
 
 use ::ConnectError;
@@ -7,6 +10,8 @@ use nice::bindings_agent::GMainContext;
 
 pub struct IceAgent {
 	agent: NiceAgent,
+	ctx:   *mut GMainContext,
+	stream: u32
 }
 
 impl IceAgent {
@@ -25,7 +30,11 @@ impl IceAgent {
 
 		gathered.get(); // blocking!
 
-		Ok(IceAgent { agent: agent })
+		Ok(IceAgent {
+			agent:  agent,
+			ctx:    ctx,
+			stream: stream,
+		})
 	}
 
 	pub fn get_local_credentials(&self) -> Vec<u8> {
@@ -38,5 +47,13 @@ impl IceAgent {
 		let cred = String::from_utf8(credentials).unwrap_or("".to_string());
 		self.agent.parse_remote_sdp(cred)
 			.map_err(|_| ConnectError::REMOTE_CREDENTIALS_NOT_FOUND)
+	}
+
+	pub fn stream_to_channel(&mut self) -> Result<(Future<Sender<Vec<u8>>>,Receiver<Vec<u8>>),()> {
+		self.agent.stream_to_channel(self.ctx, self.stream)
+	}
+
+	pub fn stream_to_socket(&mut self) -> Result<Future<Fd>,()> {
+		self.agent.stream_to_socket(self.ctx, self.stream)
 	}
 }

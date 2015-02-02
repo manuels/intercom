@@ -10,6 +10,7 @@ extern crate nice;
 use std::os::unix::Fd;
 use std::sync::Future;
 use std::time::duration::Duration;
+use std::sync::{Arc, Mutex};
 
 use dbus_service::DbusService;
 use fake_dht::FakeDHT;
@@ -37,19 +38,20 @@ trait DbusResponder {
 
 trait DHT {
 	fn get(&self, key: &Vec<u8>) -> Result<Vec<Vec<u8>>,()>;
-	fn put(&self, key: &Vec<u8>, value: &Vec<u8>, ttl: Duration) ->  Result<(),()>;
+	fn put(&mut self, key: &Vec<u8>, value: &Vec<u8>, ttl: Duration) ->  Result<(),()>;
 }
 
 fn main() {
 	let mut dbus_service = DbusService::new("org.manuel.ganymed");
-	let local_public_key = "(local_public_key)";
+	let local_public_key = "(local_public_key)".as_bytes().to_vec();
 	//TODO:
 	// - publish public key
 
 	for request in dbus_service {
+		let local_key = local_public_key.clone();
 		Future::spawn(move || {
-			let dht = FakeDHT::new();
-			match request.handle(local_public_key, &dht) {
+			let mut dht = FakeDHT::new();
+			match request.handle(local_key, &mut dht) {
 				Ok(fd) =>   request.invocation.respond(fd),
 				Err(err) => request.invocation.respond_error(err)
 			}

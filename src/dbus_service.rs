@@ -162,16 +162,15 @@ impl<'a,R:DbusResponder+Send> Iterator for DbusService<R> {
 	}
 }
 
-//impl ::DbusResponder for DbusRequest {
 impl ::DbusResponder for GInvocation {
 	fn respond(&self, fd: Fd) -> Result<(),()> {
+		unimplemented!()
 /*
 ganymed_complete_connect(object: *mut _Ganymed,
 	invocation: *mut libc::c_int,
 	fd_list: *mut libc::c_int,
 	fd: *mut libc::c_int);
 */
-		unimplemented!()
 	}
 
 	fn respond_error(&self, err: ::ConnectError) -> Result<(),()> {
