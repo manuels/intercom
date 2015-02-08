@@ -1,7 +1,9 @@
 #![allow(unstable)]
 
-use bindings_glib::{gsize,guchar};
+use bindings_glib::{gsize,guchar, gint32};
+
 use libc::types::os::arch::c95::c_int;
+use std::os::unix::Fd;
 use std::mem;
 
 extern "C" {
@@ -20,6 +22,10 @@ extern "C" {
 
 	fn g_variant_get_child_value(value: *const c_int, index: gsize)
 		-> *mut c_int;
+
+	fn g_variant_new_handle(fd: gint32) -> *mut c_int;
+
+	fn g_variant_new_tuple(children: *const *mut i32, n_children: gsize) -> *mut c_int;
 
 	fn g_variant_ref(value: *mut c_int);
 	fn g_variant_unref(value: *mut c_int);
@@ -48,7 +54,6 @@ impl GVariant {
 		}
 
 		GVariant{ptr:ptr}
-
 	}
 
 	pub fn from_vec(vec: &Vec<u8>) -> GVariant {
@@ -59,6 +64,24 @@ impl GVariant {
 			g_variant_new_fixed_array(typ, vec.as_slice().as_ptr(),
 				vec.len() as gsize, mem::size_of::<u8>() as gsize)
 		};
+
+		GVariant::from_ptr(ptr)
+	}
+
+	pub fn new_tuple(children: Vec<GVariant>) -> GVariant {
+		let mut pointers = vec![];
+		for c in children.iter() {
+			unsafe {
+				pointers.push(c.as_ptr());
+			}
+		}
+
+		let ptr = unsafe { g_variant_new_tuple(pointers.as_ptr(), children.len() as gsize) };
+		GVariant::from_ptr(ptr)
+	}
+
+	pub fn from_fd(fd: Fd) -> GVariant {
+		let ptr = unsafe { g_variant_new_handle(fd as gint32) };
 
 		GVariant::from_ptr(ptr)
 	}
@@ -99,6 +122,7 @@ impl GVariant {
 	}
 
 	pub unsafe fn as_ptr(&self) -> *mut c_int {
+		assert!(!self.ptr.is_null());
 		self.ptr
 	}
 }

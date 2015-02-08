@@ -18,6 +18,7 @@ use bindings_glib::{
 use bindings_ganymed::ganymed_skeleton_new;
 use ::ConnectError;
 use ::DbusResponder;
+use utils::spawn_thread;
 
 use glib::dbus_method_invocation::GDBusMethodInvocation as GInvocation;
 use glib::g_variant::GVariant;
@@ -36,6 +37,7 @@ struct DbusRespond;
 
 extern fn on_name_acquired(conn: c_long, name: c_long, user_data: Box<Sender<(c_long, c_long)>>)
 {
+	debug!("on_name_acquired");
 	if (*user_data).send((conn, name)).is_err() {
 		warn!("on_name_acquired(): send() failed!");
 	}
@@ -74,7 +76,8 @@ impl DbusService<GInvocation> {
 	{
 		unsafe { g_type_init() };
 
-		Thread::spawn(|| {
+		spawn_thread("DbusService::GMainLoop", || {
+			// a bug in this thread is probably in one of the callback funcs
 			GMainLoop::new().run();
 		});
 
@@ -163,14 +166,11 @@ impl<'a,R:DbusResponder+Send> Iterator for DbusService<R> {
 }
 
 impl ::DbusResponder for GInvocation {
-	fn respond(&self, fd: Fd) -> Result<(),()> {
-		unimplemented!()
-/*
-ganymed_complete_connect(object: *mut _Ganymed,
-	invocation: *mut libc::c_int,
-	fd_list: *mut libc::c_int,
-	fd: *mut libc::c_int);
-*/
+	fn respond_ok(&self, fd: Fd) -> Result<(),()> {
+		let result = GVariant::new_tuple(vec![GVariant::from_fd(fd)]);
+		self.return_result(&result, vec![fd]);
+
+		Ok(())
 	}
 
 	fn respond_error(&self, err: ::ConnectError) -> Result<(),()> {

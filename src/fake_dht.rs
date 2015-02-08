@@ -24,7 +24,6 @@ impl ::DHT for FakeDHT {
 	fn get(&self, key: &Vec<u8>) -> Result<Vec<Vec<u8>>,()> {
 		let path = self.path.lock().unwrap();
 		let mut file = File::open_mode(&*path, Open, Read).unwrap();
-		debug!("pre");
 
 		let contents = file.read_to_string().unwrap();
 
@@ -42,7 +41,6 @@ impl ::DHT for FakeDHT {
 			::std::str::from_utf8(key.as_slice()),
 			last_match.clone().map(|x| x.len()));
 
-		debug!("post");
 		match last_match {
 			None =>    Ok(vec![]),
 			Some(m) => Ok(vec![m]),
@@ -54,33 +52,32 @@ impl ::DHT for FakeDHT {
 	{
 		let path = self.path.lock().unwrap();
 		let mut file = File::open_mode(&*path, Append, Write).unwrap();
-		debug!("pre");
 
-		debug!("put(): {:?}={:?}",
+		debug!("put(): {:?}=len({:?})",
 			::std::str::from_utf8(key.as_slice()),
 			value.len());
 
-		file.write(key.as_slice());
-		file.write(value.as_slice());
-		file.write_str("\0");
-		debug!("post");
+		file.write_all(key.as_slice()).unwrap();
+		file.write_all(value.as_slice()).unwrap();
+		file.write_str("\0").unwrap();
 		Ok(())
 	}
 }
 
-#[aacfg(test)]
+#[cfg(test)]
 mod test {
 	use std::time::duration::Duration;
 	use ::fake_dht::FakeDHT;
 	use ::DHT;
 
+	#[test]
 	fn test_fake_dht() {
 		let mut dht = FakeDHT::new();
 		
 		let key = vec![3,2,1];
 		let value = vec![4,3,2,1];
 
-		dht.put(&key, &value, Duration::minutes(10));
+		dht.put(&key, &value, Duration::minutes(10)).unwrap();
 
 		let val = dht.get(&key).unwrap().get(0).unwrap().clone();
 		assert!(val == value);

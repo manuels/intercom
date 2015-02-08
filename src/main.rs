@@ -11,6 +11,7 @@ use std::os::unix::Fd;
 use std::sync::Future;
 use std::time::duration::Duration;
 use std::sync::{Arc, Mutex};
+use std::env;
 
 use dbus_service::DbusService;
 use fake_dht::FakeDHT;
@@ -25,6 +26,7 @@ mod bindings_ganymed;
 mod glib;
 mod from_pointer;
 mod fake_dht;
+mod utils;
 
 enum ConnectError {
 	REMOTE_CREDENTIALS_NOT_FOUND,
@@ -32,7 +34,13 @@ enum ConnectError {
 }
 
 trait DbusResponder {
-	fn respond(&self, fd: Fd) -> Result<(),()>;
+	fn respond(&self, result: Result<Fd,ConnectError>) -> Result<(),()> {
+		match result {
+			Ok(fd) => self.respond_ok(fd),
+			Err(e) => self.respond_error(e),
+		}
+	}
+	fn respond_ok(&self, fd: Fd) -> Result<(),()>;
 	fn respond_error(&self, err: ConnectError) -> Result<(),()>;
 }
 
@@ -42,8 +50,10 @@ trait DHT {
 }
 
 fn main() {
-	let mut dbus_service = DbusService::new("org.manuel.ganymed");
-	let local_public_key = "(local_public_key)".as_bytes().to_vec();
+	let mut args = env::args();
+	args.next();
+	let dbus_service = DbusService::new(args.next().unwrap().into_string().unwrap().as_slice());
+	let local_public_key = args.next().unwrap().into_string().unwrap().as_slice().as_bytes().to_vec();
 	//TODO:
 	// - publish public key
 
@@ -51,10 +61,8 @@ fn main() {
 		let local_key = local_public_key.clone();
 		Future::spawn(move || {
 			let mut dht = FakeDHT::new();
-			match request.handle(local_key, &mut dht) {
-				Ok(fd) =>   request.invocation.respond(fd),
-				Err(err) => request.invocation.respond_error(err)
-			}
+			let result = request.handle(local_key, &mut dht);
+			request.invocation.respond(result).unwrap();
 		});
 	}
 }

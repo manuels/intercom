@@ -4,11 +4,14 @@ use std::time::duration::Duration;
 use std::os::unix::Fd;
 use time::SteadyTime;
 use std::old_io::MemWriter;
+use from_pointer::cstr;
+use std::old_io::timer::sleep;
 
 use ::DHT;
 use ::ConnectError;
 use ::DbusResponder;
 use ice::IceAgent;
+use utils::spawn_thread;
 
 pub struct DbusRequest<R:DbusResponder> {
 	pub invocation:    R,
@@ -43,8 +46,19 @@ impl<R:DbusResponder> DbusRequest<R> {
 		let begin = SteadyTime::now();
 
 		while fd.is_err() && begin + self.timeout > SteadyTime::now() {
+			info!("new connect attempt for {:?}", self.remote_public_key);
 			fd = self.establish_connection(local_public_key.clone(), &mut agent, dht);
+			debug!("establish_connection finished: {:?}", fd.is_ok());
+			sleep(Duration::seconds(1));
 		}
+
+		/*
+		spawn_thread("DBusRequest::loop", move || {
+			// keep agent alive
+			loop {};
+			drop(agent);
+		});*/
+
 		fd
 	}
 
@@ -94,14 +108,10 @@ impl<R:DbusResponder> DbusRequest<R> {
 		unimplemented!();
 	}
 
-	fn p2p_connect(&self, agent: &mut IceAgent, credentials: Vec<u8>) -> Result<Fd,ConnectError> {
-		let count = try!(agent.set_remote_credentials(credentials));
-		if count < 1 {
-			return Err(ConnectError::REMOTE_CREDENTIALS_NOT_FOUND);
-		}
-
-		agent.stream_to_socket()
-			.map(|mut future| future.get())
+	fn p2p_connect(&self, agent: &mut IceAgent, credentials: Vec<u8>)
+		-> Result<Fd,ConnectError>
+	{
+		agent.stream_to_socket(credentials)
 			.map_err(|_|ConnectError::REMOTE_CREDENTIALS_NOT_FOUND)
 	}
 
@@ -120,15 +130,16 @@ mod tests {
 
 	use dbus_request::DbusRequest;
 	use fake_dht::FakeDHT;
+	use ::DbusResponder;
 
 	struct TestResponder;
-	impl ::DbusResponder for TestResponder {
-		fn respond(&self, fd: Fd) -> Result<(),()> {
-			unimplemented!()
+	impl DbusResponder for TestResponder {
+		fn respond_ok(&self, fd: Fd) -> Result<(),()> {
+			Ok(())
 		}
 
 		fn respond_error(&self, err: ::ConnectError) -> Result<(),()> {
-			unimplemented!()
+			Err(())
 		}
 	}
 
@@ -158,14 +169,18 @@ mod tests {
 		let timeout = 99;
 		let port = 1;
 
-		Thread::spawn(move || {
+		let thread = Thread::scoped(move || {
 			let req1 = DbusRequest::new(resp1, vec![98], port, timeout);
 
-			req1.handle("a".as_bytes().to_vec(), &mut dht1);
+			let result = req1.handle("a".as_bytes().to_vec(), &mut dht1);
+			req1.invocation.respond(result).unwrap();
 		});
 
 		let req2 = DbusRequest::new(resp2, vec![97], port, timeout);
 
-		req2.handle("b".as_bytes().to_vec(), &mut dht2);
+		let result = req2.handle("b".as_bytes().to_vec(), &mut dht2);
+		req2.invocation.respond(result).unwrap();
+		
+		drop(thread);
 	}
 }

@@ -6,6 +6,7 @@ use libc::types::os::arch::c95::{c_int, c_uint, c_ulong};
 
 pub type gint = c_int;
 pub type guint = c_uint;
+pub type gint32 = i32;
 pub type gboolean = gint;
 pub type gsize = c_ulong;
 pub type guchar = u8;
