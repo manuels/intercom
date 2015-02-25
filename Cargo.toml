@@ -3,6 +3,9 @@ name = "main"
 version = "0.0.1"
 authors = ["Manuel Schölling <manuel.schoelling@gmx.de>"]
 
+[dependencies.ecdh]
+git = "https://github.com/manuels/ecdh.rs.git"
+
 [dependencies.openssl]
 git = "https://github.com/sfackler/rust-openssl.git"
 

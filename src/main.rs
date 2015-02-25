@@ -6,15 +6,21 @@
 extern crate time;
 extern crate libc;
 extern crate nice;
+extern crate ecdh;
+extern crate openssl;
 
 use std::os::unix::Fd;
 use std::sync::Future;
 use std::time::duration::Duration;
 use std::sync::{Arc, Mutex};
 use std::env;
+use std::borrow::Borrow;
 
-use dbus_service::DbusService;
+use dbus_service::DBusService;
 use fake_dht::FakeDHT;
+use ecdh::public_key::PublicKey;
+use ecdh::ecdh::ECDH;
+use ecdh::private_key::PrivateKey;
 
 mod dht;
 mod dbus_service;
@@ -33,7 +39,7 @@ enum ConnectError {
 	FOO,
 }
 
-trait DbusResponder {
+trait DBusResponder {
 	fn respond(&self, result: Result<Fd,ConnectError>) -> Result<(),()> {
 		match result {
 			Ok(fd) => self.respond_ok(fd),
@@ -52,16 +58,37 @@ trait DHT {
 fn main() {
 	let mut args = env::args();
 	args.next();
-	let dbus_service = DbusService::new(args.next().unwrap().into_string().unwrap().as_slice());
-	let local_public_key = args.next().unwrap().into_string().unwrap().as_slice().as_bytes().to_vec();
-	//TODO:
-	// - publish public key
+	let dbus_path = args.next().unwrap();
+	let local_private_key = args.next().unwrap().into_bytes().map_in_place(|x| x as i8);
+
+	let dbus_service = DBusService::new(dbus_path.borrow());
 
 	for request in dbus_service {
-		let local_key = local_public_key.clone();
+		let my_private_key = local_private_key.clone();
+
 		Future::spawn(move || {
+			let my_private_key = PrivateKey::from_vec(&my_private_key).unwrap();
+
+			let my_public_key   = my_private_key.get_public_key();
+			let your_public_key = PublicKey::from_vec(&request.remote_public_key.clone().map_in_place(|x| x as i8)).unwrap();
+
+			let mut my_hash   = vec![];
+			let mut your_hash = vec![];
+			my_hash.push_all(my_public_key.to_vec().map_in_place(|x| x as u8).as_slice());
+			my_hash.push_all(your_public_key.to_vec().map_in_place(|x| x as u8).as_slice());
+			your_hash.push_all(your_public_key.to_vec().map_in_place(|x| x as u8).as_slice());
+			your_hash.push_all(my_public_key.to_vec().map_in_place(|x| x as u8).as_slice());
+
+			let shared_key = ECDH::compute_key(&my_private_key, &your_public_key).unwrap();
+
 			let mut dht = FakeDHT::new();
-			let result = request.handle(local_key, &mut dht);
+			let result = request.handle(&my_private_key,
+			                            &my_public_key,
+			                            &your_public_key,
+			                            &shared_key.to_vec(),
+			                            &my_hash,
+			                            &your_hash,
+			                            &mut dht);
 			request.invocation.respond(result).unwrap();
 		});
 	}

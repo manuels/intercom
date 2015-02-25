@@ -25,7 +25,7 @@ impl ::DHT for FakeDHT {
 		let path = self.path.lock().unwrap();
 		let mut file = File::open_mode(&*path, Open, Read).unwrap();
 
-		let contents = file.read_to_string().unwrap();
+		let contents = file.read_to_end().unwrap();
 
 		let k = String::from_utf8(key.clone()).unwrap();
 
@@ -57,9 +57,11 @@ impl ::DHT for FakeDHT {
 			::std::str::from_utf8(key.as_slice()),
 			value.len());
 
+		file.write_all(key.len()).unwrap();
 		file.write_all(key.as_slice()).unwrap();
+		file.write_all(value.len()).unwrap();
 		file.write_all(value.as_slice()).unwrap();
-		file.write_str("\0").unwrap();
+
 		Ok(())
 	}
 }

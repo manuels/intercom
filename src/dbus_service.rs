@@ -2,22 +2,23 @@ use libc::types::os::arch::c95::c_long;
 use std::thread::Thread;
 use std::mem;
 
-use dbus_request::DbusRequest;
+use dbus_request::DBusRequest;
 use nice::glib2::GMainLoop;
 use bindings_glib::GBusType::*;
 use bindings_glib::GDBusCapabilityFlags::*;
 use bindings_glib::GBusNameOwnerFlags::*;
-use bindings_glib::{
-		TRUE,
-		guint,
-		gboolean,
-		g_type_init,
-		g_bus_own_name,
-		g_dbus_connection_get_capabilities,
-		g_dbus_interface_skeleton_export};
+use bindings_glib::TRUE;
+use bindings_glib::FALSE;
+use bindings_glib::guint;
+use bindings_glib::gboolean;
+use bindings_glib::g_type_init;
+use bindings_glib::g_bus_own_name;
+use bindings_glib::g_dbus_connection_get_capabilities;
+use bindings_glib::g_dbus_interface_skeleton_export;
 use bindings_ganymed::ganymed_skeleton_new;
+
 use ::ConnectError;
-use ::DbusResponder;
+use ::DBusResponder;
 use utils::spawn_thread;
 
 use glib::dbus_method_invocation::GDBusMethodInvocation as GInvocation;
@@ -26,69 +27,78 @@ use glib::g_object::GObject;
 use from_pointer::cstr;
 
 use std::os::unix::Fd;
-use std::sync::mpsc::{channel,Sender,Receiver};
+use std::sync::mpsc::channel;
+use std::sync::mpsc::Sender;
+use std::sync::mpsc::Receiver;
 
-pub struct DbusService<R:DbusResponder> {
+pub struct DBusService<R:DBusResponder>
+{
 	ptr: *mut i32,
-	rx: Receiver<DbusRequest<R>>,
+	rx: Receiver<DBusRequest<R>>,
 }
 
-struct DbusRespond;
-
-extern fn on_name_acquired(conn: c_long, name: c_long, user_data: Box<Sender<(c_long, c_long)>>)
+extern fn on_name_acquired(conn: c_long,
+                           name: c_long,
+                           user_data: Box<Sender<(c_long, c_long)>>)
+	-> gboolean
 {
 	debug!("on_name_acquired");
-	if (*user_data).send((conn, name)).is_err() {
-		warn!("on_name_acquired(): send() failed!");
+
+	let pair = (conn, name);
+	let res = unsafe { (*user_data).send(pair) };
+
+	if res.is_err() {
+		panic!("on_name_acquired(): send() failed!");
 	}
+
+	FALSE
 }
 
-extern fn connect_to_node(dbus_obj:  *mut i32,
+extern fn connect_to_node(DBus_obj:  *mut i32,
 			invocation_ptr:          *mut i32,
 			fd_list:                 *mut i32,
 			gvar_remote_public_key:  *mut i32,
 			port:                    guint,
 			timeout:                 guint,
-			channel:                 *mut Sender<DbusRequest<GInvocation>>)
+			channel:                 *mut Sender<DBusRequest<GInvocation>>)
 	-> gboolean
 {
 	debug!("connect_to_node() invoked.");
 
 	assert!(!channel.is_null());
+	assert!(!invocation_ptr.is_null());
+	assert!(!gvar_remote_public_key.is_null());
 
-	let invocation = GInvocation::new(invocation_ptr);
-
+	let invoc = GInvocation::new(invocation_ptr);
 	let remote_public_key = GVariant::from_ptr(gvar_remote_public_key).to_vec();
+	let req = DBusRequest::new(invoc, remote_public_key, port, timeout);
 
-	let req = DbusRequest::new(invocation, remote_public_key, port, timeout);
-
-	unsafe {
-		if (*channel).send(req).is_err() {
-			warn!("on_name_acquired(): send() failed!");
-		}
-	};
+	let res = unsafe { (*channel).send(req) };
+	if res.is_err() {
+		panic!("connect_to_node(): send() failed!");
+	}
 
 	TRUE
 }
 
-impl DbusService<GInvocation> {
-	pub fn new(service_name: &str) -> DbusService<GInvocation>
+impl DBusService<GInvocation> {
+	pub fn new(service_name: &str) -> DBusService<GInvocation>
 	{
 		unsafe { g_type_init() };
 
-		spawn_thread("DbusService::GMainLoop", || {
+		spawn_thread("DBusService::GMainLoop", || {
 			// a bug in this thread is probably in one of the callback funcs
 			GMainLoop::new().run();
 		});
 
 		let bus_type = G_BUS_TYPE_SESSION;
-		let flags = G_BUS_NAME_OWNER_FLAGS_ALLOW_REPLACEMENT | 
-			G_BUS_NAME_OWNER_FLAGS_REPLACE;
+		let flags = G_BUS_NAME_OWNER_FLAGS_REPLACE | 
+			G_BUS_NAME_OWNER_FLAGS_ALLOW_REPLACEMENT;
 
-		let conn = DbusService::acquire_name(service_name, bus_type, flags);
+		let conn = DBusService::acquire_name(service_name, bus_type, flags);
 
 		let (tx, rx) = channel();
-		let myself = DbusService {
+		let myself = DBusService {
 			ptr: conn as *mut i32,
 			rx:  rx
 		};
@@ -100,8 +110,8 @@ impl DbusService<GInvocation> {
 	}
 
 	fn acquire_name(service_name: &str,
-				bus_type: GBusType,
-				flags: GBusNameOwnerFlags)
+	                bus_type:     GBusType,
+	                flags:        GBusNameOwnerFlags)
 		-> *mut i32
 	{
 		let (tx, rx): (Sender<(c_long, c_long)>,_) = channel();
@@ -125,7 +135,9 @@ impl DbusService<GInvocation> {
 		conn as *mut i32
 	}
 
-	fn export_object_path(&self, obj_path: &str, tx: Sender<DbusRequest<GInvocation>>)
+	fn export_object_path(&self,
+	                      obj_path: &str,
+	                      tx:       Sender<DBusRequest<GInvocation>>)
 	{
 		let ptr = unsafe { ganymed_skeleton_new() as *mut i32 };
 		let obj = GObject::from_ptr(ptr);
@@ -133,14 +145,14 @@ impl DbusService<GInvocation> {
 		unsafe {
 			let mut error = 0 as *mut i32;
 			g_dbus_interface_skeleton_export(ptr,
-				self.ptr,
-				obj_path.as_ptr(),
-				&mut error);
+			                                 self.ptr,
+			                                 obj_path.as_ptr(),
+			                                 &mut error);
 			assert!(error.is_null());
 
 			obj.connect_signal("handle_connect",
-				mem::transmute(connect_to_node),
-				Box::new(tx));
+			                   mem::transmute(connect_to_node),
+			                   Box::new(tx));
 		}
 	}
 
@@ -153,10 +165,10 @@ impl DbusService<GInvocation> {
 }
 
 
-impl<'a,R:DbusResponder+Send> Iterator for DbusService<R> {
-	type Item = DbusRequest<R>;
+impl<R:'static+DBusResponder+Send> Iterator for DBusService<R> {
+	type Item = DBusRequest<R>;
 
-	fn next(&mut self) -> Option<DbusRequest<R>> {
+	fn next(&mut self) -> Option<DBusRequest<R>> {
 		self.rx.recv().ok()
 	}
 
@@ -165,11 +177,11 @@ impl<'a,R:DbusResponder+Send> Iterator for DbusService<R> {
 	}
 }
 
-impl ::DbusResponder for GInvocation {
+impl DBusResponder for GInvocation {
 	fn respond_ok(&self, fd: Fd) -> Result<(),()> {
 		let result = GVariant::new_tuple(vec![GVariant::from_fd(fd)]);
-		self.return_result(&result, vec![fd]);
 
+		self.return_result(&result, vec![fd]);
 		Ok(())
 	}
 
@@ -180,6 +192,7 @@ impl ::DbusResponder for GInvocation {
 			ConnectError::FOO =>
 				("org.manuel.Ganymed.not_implemented", ""),
 		};
+
 		self.return_dbus_error(name, msg);
 		Ok(())
 	}
