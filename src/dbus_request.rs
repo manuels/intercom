@@ -96,32 +96,19 @@ impl<R:DBusResponder> DBusRequest<R>
 	                        dht:               &mut DHT)
 		-> Result<Fd,ConnectError>
 	{
+		let ttl = Duration::minutes(5);
+		let publish_local_credentials = |dht: &mut DHT, c| dht.put(&my_hash, &c, ttl);
+		let lookup_remote_credentials = |dht: &mut DHT| dht.get(&your_hash);
+
 		Ok(agent.get_local_credentials())
 //			.and_then(|c| // prepend time: time::now_utc()::rfc3339())
 			.and_then(|c| DBusRequest::<R>::encrypt(shared_key, &c))
-			.and_then(|c| DBusRequest::<R>::publish_local_credentials(dht, &my_hash, &c))
-			.and_then(|_| DBusRequest::<R>::lookup_remote_credentials(dht, &your_hash))
+			.and_then(|c| publish_local_credentials(dht, c).map_err(|_| unimplemented!()))
+			.and_then(|_| lookup_remote_credentials(dht).map_err(|_| ConnectError::REMOTE_CREDENTIALS_NOT_FOUND))
 			.and_then(|l| DBusRequest::<R>::decrypt(shared_key, &l))
 			//.and_then(select_most_recent)
-			.and_then(|c| self.p2p_connect(agent, &c))
+			.and_then(|c| self.p2p_connect(agent, c))
 			//.and_then(|c| self.ssl_connect(c))
-	}
-
-	fn publish_local_credentials(dht:         &mut DHT,
-	                             my_hash:     &Vec<u8>,
-	                             credentials: &Vec<u8>)
-		-> Result<(),ConnectError>
-	{
-		dht.put(&my_hash, &credentials, Duration::minutes(5))
-		   .map_err(|_| unimplemented!())
-	}
- 
-	fn lookup_remote_credentials(dht:       &mut DHT,
-	                             your_hash: &Vec<u8>)
-		-> Result<Vec<Vec<u8>>,ConnectError>
-	{
-		dht.get(&your_hash)
-		   .map_err(|_| ConnectError::REMOTE_CREDENTIALS_NOT_FOUND)
 	}
 
 	fn split_secret_key(shared_key: &Vec<u8>) -> (Vec<u8>, Vec<u8>, Vec<u8>)
@@ -177,11 +164,11 @@ impl<R:DBusResponder> DBusRequest<R>
 		}
 	}
 
-	fn p2p_connect(&self, agent: &mut IceAgent, credentials: &Vec<u8>)
+	fn p2p_connect(&self, agent: &mut IceAgent, credentials: Vec<u8>)
 		-> Result<Fd,ConnectError>
 	{
-		debug!("DBusRequest::p2p_connect(): credentials={}", ::std::str::from_utf8(credentials).unwrap());
-		agent.stream_to_socket(credentials.clone())
+		debug!("DBusRequest::p2p_connect(): credentials='{}'", ::std::str::from_utf8(&credentials).unwrap());
+		agent.stream_to_socket(&credentials)
 			.map_err(|_|ConnectError::REMOTE_CREDENTIALS_NOT_FOUND)
 	}
 

@@ -46,17 +46,17 @@ impl IceAgent {
 		self.agent.generate_local_sdp().into_bytes()
 	}
 
-	pub fn stream_to_channel(&mut self, credentials: Vec<u8>)
+	pub fn stream_to_channel(&mut self, credentials: &Vec<u8>)
 			 -> Result<(Sender<Vec<u8>>,Receiver<Vec<u8>>), ()>
 	{
-		let cred = String::from_utf8(credentials).unwrap_or("".to_string());
+		let cred = String::from_utf8(credentials.clone()).unwrap_or("".to_string());
 		self.agent.stream_to_channel(self.ctx, self.stream, cred, &self.state_rx)
 	}
 
-	pub fn stream_to_socket(&mut self, credentials: Vec<u8>)
+	pub fn stream_to_socket(&mut self, credentials: &Vec<u8>)
 			-> Result<Fd,()>
 	{
-		let cred = String::from_utf8(credentials).unwrap_or("".to_string());
+		let cred = String::from_utf8(credentials.clone()).unwrap_or("".to_string());
 		self.agent.stream_to_socket(self.ctx, self.stream, cred, &self.state_rx)
 	}
 }
