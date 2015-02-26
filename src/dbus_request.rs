@@ -98,17 +98,16 @@ impl<R:DBusResponder> DBusRequest<R>
 	{
 		Ok(agent.get_local_credentials())
 //			.and_then(|c| // prepend time: time::now_utc()::rfc3339())
-			.and_then(|c| self.encrypt(shared_key, &c))
-			.and_then(|c| self.publish_local_credentials(dht, &my_hash, &c))
-			.and_then(|_| self.lookup_remote_credentials(dht, &your_hash))
-			.and_then(|l| self.decrypt(shared_key, &l))
+			.and_then(|c| DBusRequest::<R>::encrypt(shared_key, &c))
+			.and_then(|c| DBusRequest::<R>::publish_local_credentials(dht, &my_hash, &c))
+			.and_then(|_| DBusRequest::<R>::lookup_remote_credentials(dht, &your_hash))
+			.and_then(|l| DBusRequest::<R>::decrypt(shared_key, &l))
 			//.and_then(select_most_recent)
 			.and_then(|c| self.p2p_connect(agent, &c))
 			//.and_then(|c| self.ssl_connect(c))
 	}
 
-	fn publish_local_credentials(&self,
-	                             dht:         &mut DHT,
+	fn publish_local_credentials(dht:         &mut DHT,
 	                             my_hash:     &Vec<u8>,
 	                             credentials: &Vec<u8>)
 		-> Result<(),ConnectError>
@@ -117,8 +116,7 @@ impl<R:DBusResponder> DBusRequest<R>
 		   .map_err(|_| unimplemented!())
 	}
  
-	fn lookup_remote_credentials(&self,
-	                             dht:       &mut DHT,
+	fn lookup_remote_credentials(dht:       &mut DHT,
 	                             your_hash: &Vec<u8>)
 		-> Result<Vec<Vec<u8>>,ConnectError>
 	{
@@ -126,8 +124,7 @@ impl<R:DBusResponder> DBusRequest<R>
 		   .map_err(|_| ConnectError::REMOTE_CREDENTIALS_NOT_FOUND)
 	}
 
-	fn split_secret_key(&self, shared_key: &Vec<u8>)
-		-> (Vec<u8>, Vec<u8>, Vec<u8>)
+	fn split_secret_key(shared_key: &Vec<u8>) -> (Vec<u8>, Vec<u8>, Vec<u8>)
 	{
 		assert_eq!(shared_key.len(), 512/8);
 
@@ -140,12 +137,11 @@ impl<R:DBusResponder> DBusRequest<R>
 		(key.to_vec(), iv.to_vec(), hash.to_vec())
 	}
 
-	fn encrypt(&self, 
-	           shared_key: &Vec<u8>,
+	fn encrypt(shared_key: &Vec<u8>,
 	           plaintext:  &Vec<u8>)
 		-> Result<Vec<u8>,ConnectError>
 	{
-		let (key, iv, hash) = self.split_secret_key(shared_key);
+		let (key, iv, hash) = DBusRequest::<R>::split_secret_key(shared_key);
 
 		assert_eq!(key.len(),  256/8);
 		assert_eq!(iv.len(),   256/8);
@@ -159,15 +155,14 @@ impl<R:DBusResponder> DBusRequest<R>
 		Ok(res)
 	}
 
-	fn decrypt(&self,
-	           shared_key:  &Vec<u8>,
+	fn decrypt(shared_key:  &Vec<u8>,
 	           ciphertexts: &Vec<Vec<u8>>)
 		-> Result<Vec<u8>,ConnectError>
 	{
 		debug!("ciphertext: {:?}", ciphertexts.get(0).map(|v| v.as_slice()));
 		let ctxt = try!(ciphertexts.get(0).ok_or(ConnectError::REMOTE_CREDENTIALS_NOT_FOUND));
 
-		let (key, iv, hash) = self.split_secret_key(shared_key);
+		let (key, iv, hash) = DBusRequest::<R>::split_secret_key(shared_key);
 
 		let (actual_hmac,ctxt) = ctxt.split_at(HMAC_HASH.md_len());
 		let expected_hmac = hmac::hmac(HMAC_HASH, hash.as_slice(), ctxt.as_slice());
