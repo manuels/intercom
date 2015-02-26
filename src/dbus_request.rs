@@ -2,7 +2,7 @@ extern crate time;
 
 use std::time::duration::Duration;
 use std::os::unix::Fd;
-use time::SteadyTime;
+use time::PreciseTime;
 use std::old_io::MemWriter;
 use std::old_io::timer::sleep;
 use from_pointer::cstr;
@@ -68,9 +68,9 @@ impl<R:DBusResponder> DBusRequest<R>
 		let mut agent = try!(IceAgent::new(controlling_mode).map_err(|_|ConnectError::FOO));
 
 		let mut fd = Err(ConnectError::REMOTE_CREDENTIALS_NOT_FOUND);
-		let end = SteadyTime::now() + self.timeout;
+		let start = PreciseTime::now();
 
-		while fd.is_err() && SteadyTime::now() < end {
+		while fd.is_err() && start.to(PreciseTime::now()) < self.timeout {
 			fd = self.establish_connection(&local_private_key,
 			                               &local_public_key,
 			                               &remote_public_key,
