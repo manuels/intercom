@@ -95,6 +95,7 @@ impl<R:DBusResponder> DBusRequest<R>
 		-> Result<Fd,ConnectError>
 	{
 		Ok(agent.get_local_credentials())
+//			.and_then(|c| // prepend time: time::now_utc()::rfc3339())
 			.and_then(|c| self.encrypt(shared_key, &c))
 			.and_then(|c| self.publish_local_credentials(dht, &local_public_key, &c))
 			.and_then(|_| self.lookup_remote_credentials(dht, &remote_public_key))
@@ -158,12 +159,7 @@ impl<R:DBusResponder> DBusRequest<R>
 	               ciphertexts: &Vec<Vec<u8>>)
 			-> Result<Vec<u8>,ConnectError>
 	{
-		warn!("DBusRequest::decrypt() is unimplemented!");
-		// should be something like
-		// |c| c.into_iter().filter_map(self.decrypt)
-		// in the end
-
-		debug!("ciphertext: {:?}", ciphertexts.get(0).map(|v| ::std::str::from_utf8(v.as_slice())));
+		debug!("ciphertext: {:?}", ciphertexts.get(0).map(|v| v.as_slice()));
 		let ctxt = try!(ciphertexts.get(0).ok_or(ConnectError::REMOTE_CREDENTIALS_NOT_FOUND));
 
 		let (key, iv, hash) = self.split_secret_key(shared_key);
@@ -175,7 +171,7 @@ impl<R:DBusResponder> DBusRequest<R>
 		let typ = crypto::symm::Type::AES_128_CBC;
 		let plaintext = crypto::symm::decrypt(typ, key.as_slice(), iv.to_vec(), ctxt.as_slice());
 
-		if actual_hmac == expected_hmac {
+		if crypto::memcmp::eq(&actual_hmac, &expected_hmac) {
 			Ok(plaintext)
 		} else {
 			Err(ConnectError::REMOTE_CREDENTIALS_NOT_FOUND)
@@ -185,6 +181,7 @@ impl<R:DBusResponder> DBusRequest<R>
 	fn p2p_connect(&self, agent: &mut IceAgent, credentials: &Vec<u8>)
 		-> Result<Fd,ConnectError>
 	{
+		debug!("DBusRequest::p2p_connect(): credentials={}", ::std::str::from_utf8(credentials).unwrap());
 		agent.stream_to_socket(credentials.clone())
 			.map_err(|_|ConnectError::REMOTE_CREDENTIALS_NOT_FOUND)
 	}
@@ -249,29 +246,20 @@ mod tests {
 		let alice_public_key1 = vec![48i8, 51, 48, 49, 48, 66, 67, 54, 53, 56, 51, 52, 65, 56, 54, 50, 65, 65, 57, 65, 51, 51, 69, 51, 65, 51, 48, 69, 52, 70, 57, 50, 49, 51, 57, 67, 50, 56, 49, 70, 68, 49, 48, 52, 54, 49, 54, 50, 51, 56, 66, 70, 67, 48, 49, 54, 68, 65, 66, 53, 69, 49, 48, 57, 68, 54, 69, 70, 48, 55, 55, 50, 55, 70, 69, 69, 51, 50, 48, 70, 69, 67, 54, 65, 53, 52, 69, 57, 49, 66, 53, 67, 49, 52, 54, 52, 49, 53, 54, 51, 48, 50, 50, 65, 57, 69, 50, 51, 53, 53, 66, 48, 65, 70, 65, 49, 54, 50, 54, 52, 66, 51, 68, 70, 65, 69, 50, 49, 55, 55, 66, 55, 70, 53];
 		let alice_public_key2 = alice_public_key1.clone();
 		let alice_private_key = vec![54i8, 69, 51, 50, 69, 54, 48, 50, 54, 69, 56, 66, 54, 69, 52, 48, 54, 53, 51, 57, 57, 54, 65, 69, 70, 70, 57, 65, 69, 49, 68, 55, 53, 49, 51, 66, 69, 52, 55, 55, 56, 56, 65, 68, 53, 67, 49, 51, 51, 51, 53, 65, 48, 52, 67, 54, 54, 65, 51, 57, 57, 68, 53, 51, 65, 53, 70, 65, 50, 55, 50, 66, 54, 55, 55, 68, 66, 54, 55, 48, 69, 66, 65, 50, 66, 66, 52, 70, 49, 67, 56, 49, 57, 52, 49, 57, 68, 50, 55, 67, 55, 66, 67, 53, 68, 51, 52, 56, 51, 56, 49, 49, 54, 56, 55, 49, 68, 56, 49, 48, 55, 50, 56, 66, 50, 49, 65, 55, 67, 66];
-		let bob_private_key = alice_private_key.clone();
-		let bob_public_key1 = alice_public_key1.clone();
-		let bob_public_key2 = bob_public_key1.clone();
-/*
-	pub fn handle(&self,
-	              local_private_key: &PrivateKey,
-	              local_public_key:  &PublicKey,
-	              remote_public_key: &PublicKey,
-	              shared_key:        &SharedKey,
-	              my_hash:           &Vec<u8>,
-	              your_hash:         &Vec<u8>,
-	              dht:               &mut DHT)
-	              */
-		let alice_shared_key = vec![0u8; 512/8];
-		let bob_shared_key = vec![0u8; 512/8];
+		let bob_private_key   = alice_private_key.clone();
+		let bob_public_key1   = alice_public_key1.clone();
+		let bob_public_key2   = bob_public_key1.clone();
+
+		let alice_shared_key  = vec![0u8; 512/8];
+		let bob_shared_key    = vec![0u8; 512/8];
 
 		let alice_hash1 = vec![1];
 		let alice_hash2 = vec![1];
-		let bob_hash1 = vec![1];
-		let bob_hash2 = vec![1];
+		let bob_hash1   = vec![1];
+		let bob_hash2   = vec![1];
 
 		let thread = Thread::scoped(move || {
-			let req1 = DBusRequest::new(resp1, vec![98], port, timeout);
+			let req1 = DBusRequest::new(resp1, bob_public_key1.clone().map_in_place(|x| x as u8), port, timeout);
 
 			let result = req1.handle(&PrivateKey::from_vec(&alice_private_key).unwrap(),
 				&PublicKey::from_vec(&alice_public_key1).unwrap(),
@@ -283,7 +271,7 @@ mod tests {
 			req1.invocation.respond(result).unwrap();
 		});
 
-		let req2 = DBusRequest::new(resp2, vec![97], port, timeout);
+		let req2 = DBusRequest::new(resp2, alice_public_key2.clone().map_in_place(|x| x as u8), port, timeout);
 
 		let result = req2.handle(&PrivateKey::from_vec(&bob_private_key).unwrap(),
 			&PublicKey::from_vec(&bob_public_key2).unwrap(),
