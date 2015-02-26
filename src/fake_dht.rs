@@ -26,8 +26,6 @@ impl ::DHT for FakeDHT {
 		let mut file = File::open_mode(&*path, Open, Read).unwrap();
 
 		let mut last_match = None;
-		let mut pos = 0;
-
 		loop {
 			let klen = file.read_le_u32();
 			if klen.is_err() { break; }
@@ -53,7 +51,7 @@ impl ::DHT for FakeDHT {
 		}
 	}
 
-	fn put(&mut self, key: &Vec<u8>, value: &Vec<u8>, ttl: Duration)
+	fn put(&mut self, key: &Vec<u8>, value: &Vec<u8>, _: Duration)
 		-> Result<(),()>
 	{
 		let path = self.path.lock().unwrap();

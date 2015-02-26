@@ -24,14 +24,16 @@ use ::ConnectError;
 use ::DBusResponder;
 
 type DHT = FakeDHT;
-
 type SharedKey = Vec<u8>;
 
+const HMAC_HASH: hash::Type = hash::Type::SHA512;
+const CRYPTO: crypto::symm::Type = crypto::symm::Type::AES_256_CBC;
+
 pub struct DBusRequest<R:DBusResponder> {
-	pub invocation:    R,
+	pub invocation:        R,
 	pub remote_public_key: Vec<u8>,
-	port:              u32,
-	timeout:           Duration,
+	port:                  u32,
+	timeout:               Duration,
 }
 
 impl<R:DBusResponder> DBusRequest<R>
@@ -97,8 +99,8 @@ impl<R:DBusResponder> DBusRequest<R>
 		Ok(agent.get_local_credentials())
 //			.and_then(|c| // prepend time: time::now_utc()::rfc3339())
 			.and_then(|c| self.encrypt(shared_key, &c))
-			.and_then(|c| self.publish_local_credentials(dht, &local_public_key, &c))
-			.and_then(|_| self.lookup_remote_credentials(dht, &remote_public_key))
+			.and_then(|c| self.publish_local_credentials(dht, &my_hash, &c))
+			.and_then(|_| self.lookup_remote_credentials(dht, &your_hash))
 			.and_then(|l| self.decrypt(shared_key, &l))
 			//.and_then(select_most_recent)
 			.and_then(|c| self.p2p_connect(agent, &c))
@@ -106,71 +108,73 @@ impl<R:DBusResponder> DBusRequest<R>
 	}
 
 	fn publish_local_credentials(&self,
-	                             dht:              &mut DHT,
-	                             local_public_key: &PublicKey,
-	                             credentials:      &Vec<u8>)
+	                             dht:         &mut DHT,
+	                             my_hash:     &Vec<u8>,
+	                             credentials: &Vec<u8>)
 		-> Result<(),ConnectError>
 	{
-		dht.put(&local_public_key.to_vec().map_in_place(|x| x as u8),
-		        &credentials, Duration::minutes(5))
-			.map_err(|_| unimplemented!())
+		dht.put(&my_hash, &credentials, Duration::minutes(5))
+		   .map_err(|_| unimplemented!())
 	}
  
 	fn lookup_remote_credentials(&self,
-	                             dht:               &mut DHT,
-	                             remote_public_key: &PublicKey)
+	                             dht:       &mut DHT,
+	                             your_hash: &Vec<u8>)
 		-> Result<Vec<Vec<u8>>,ConnectError>
 	{
-		dht.get(&remote_public_key.to_vec().map_in_place(|x| x as u8))
-			.map_err(|_| ConnectError::REMOTE_CREDENTIALS_NOT_FOUND)
+		dht.get(&your_hash)
+		   .map_err(|_| ConnectError::REMOTE_CREDENTIALS_NOT_FOUND)
 	}
 
-	fn split_secret_key<'a>(&'a self, shared_key: &'a Vec<u8>)
+	fn split_secret_key(&self, shared_key: &Vec<u8>)
 		-> (Vec<u8>, Vec<u8>, Vec<u8>)
 	{
-		let (key, seed) = shared_key.as_slice().split_at(16);
+		assert_eq!(shared_key.len(), 512/8);
+
+		let (key, seed) = shared_key.as_slice().split_at(512/8/2);
 
 		let typ = hash::Type::SHA512;
 		let md  = hash::hash(typ, seed);
-		let (iv, hash) = md.as_slice().split_at(16);
+		let (iv, hash) = md.as_slice().split_at(512/8/2);
 
 		(key.to_vec(), iv.to_vec(), hash.to_vec())
 	}
 
-	fn encrypt<'b>(&self, 
-	               shared_key: &Vec<u8>,
-	               plaintext:  &Vec<u8>)
+	fn encrypt(&self, 
+	           shared_key: &Vec<u8>,
+	           plaintext:  &Vec<u8>)
 		-> Result<Vec<u8>,ConnectError>
 	{
-		let typ = crypto::symm::Type::AES_128_CBC;
 		let (key, iv, hash) = self.split_secret_key(shared_key);
 
-		let mut ciphertext = crypto::symm::encrypt(typ, key.as_slice(), iv.to_vec(), plaintext);
+		assert_eq!(key.len(),  256/8);
+		assert_eq!(iv.len(),   256/8);
+		assert_eq!(hash.len(), 256/8);
 
-		let typ = hash::Type::SHA512;
-		let mut res = hmac::hmac(typ, hash.as_slice(), ciphertext.as_slice());
+		let mut ciphertext = crypto::symm::encrypt(CRYPTO, key.as_slice(), iv.to_vec(), plaintext);
+
+		let mut res = hmac::hmac(HMAC_HASH, hash.as_slice(), ciphertext.as_slice());
 		res.append(&mut ciphertext);
 
 		Ok(res)
 	}
 
-	fn decrypt<'b>(&self,
-	               shared_key:  &Vec<u8>,
-	               ciphertexts: &Vec<Vec<u8>>)
-			-> Result<Vec<u8>,ConnectError>
+	fn decrypt(&self,
+	           shared_key:  &Vec<u8>,
+	           ciphertexts: &Vec<Vec<u8>>)
+		-> Result<Vec<u8>,ConnectError>
 	{
 		debug!("ciphertext: {:?}", ciphertexts.get(0).map(|v| v.as_slice()));
 		let ctxt = try!(ciphertexts.get(0).ok_or(ConnectError::REMOTE_CREDENTIALS_NOT_FOUND));
 
 		let (key, iv, hash) = self.split_secret_key(shared_key);
 
-		let typ = hash::Type::SHA512;
-		let (actual_hmac,ctxt) = ctxt.split_at(typ.md_len());
-		let expected_hmac = hmac::hmac(typ, hash.as_slice(), ctxt.as_slice());
+		let (actual_hmac,ctxt) = ctxt.split_at(HMAC_HASH.md_len());
+		let expected_hmac = hmac::hmac(HMAC_HASH, hash.as_slice(), ctxt.as_slice());
 
-		let typ = crypto::symm::Type::AES_128_CBC;
-		let plaintext = crypto::symm::decrypt(typ, key.as_slice(), iv.to_vec(), ctxt.as_slice());
+		let plaintext = crypto::symm::decrypt(CRYPTO, key.as_slice(), iv.to_vec(), ctxt.as_slice());
 
+		assert_eq!(actual_hmac.len(), expected_hmac.len());
 		if crypto::memcmp::eq(&actual_hmac, &expected_hmac) {
 			Ok(plaintext)
 		} else {
@@ -208,11 +212,11 @@ mod tests {
 
 	struct TestResponder;
 	impl DBusResponder for TestResponder {
-		fn respond_ok(&self, fd: Fd) -> Result<(),()> {
+		fn respond_ok(&self, _: Fd) -> Result<(),()> {
 			Ok(())
 		}
 
-		fn respond_error(&self, err: ::ConnectError) -> Result<(),()> {
+		fn respond_error(&self, _: ::ConnectError) -> Result<(),()> {
 			Err(())
 		}
 	}
@@ -222,7 +226,7 @@ mod tests {
 			Ok(vec![self.get(key).unwrap().clone()])
 		}
 
-		fn put(&mut self, key: &Vec<u8>, value: &Vec<u8>, ttl: Duration)
+		fn put(&mut self, key: &Vec<u8>, value: &Vec<u8>, _: Duration)
 			->  Result<(),()>
 		{
 			self.insert(key.clone(), value.clone());
