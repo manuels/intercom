@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use std::mem;
 
 use bindings_glib::g_signal_connect_data;

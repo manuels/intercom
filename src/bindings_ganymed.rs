@@ -1,5 +1,4 @@
 #![allow(dead_code)]
-#![allow(unstable)]
 
 extern crate libc;
 
@@ -332,7 +331,7 @@ extern "C" {
 /*
 Ganymed * ganymed_skeleton_new() [struct _Ganymed *]
 */
-#[link_args="src/ganymed-bindings.o"]
+#[link_args="./src/ganymed-bindings.o"]
 extern "C" {
 	pub fn ganymed_skeleton_new() -> *mut _Ganymed;
 }

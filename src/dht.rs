@@ -1,17 +1,16 @@
 #![allow(dead_code)]
 
-use std::time::duration::Duration;
+use time::Duration;
 
 use ::DHT;
 use bindings_glib::GBusType::*;
 use bindings_glib::g_object_unref;
-use bindings_glib::g_dbus_proxy_new_for_bus_sync;
 use bindings_lunadht;
 use bindings_lunadht::{
 	luna_dht_proxy_new_for_bus_sync, luna_dht_call_get_sync,
 	luna_dht_call_put_sync};
 use glib::g_variant::GVariant;
-use from_pointer::cstr;
+use std::ffi::CString;
 
 const APP_ID:i32 = 8877;
 
@@ -38,8 +37,8 @@ impl LunaDHT {
 		let proxy = unsafe {
 			luna_dht_proxy_new_for_bus_sync(bus_type.bits(),
 				0,
-				cstr(name).as_ptr() as *mut i32,
-				cstr(object_path).as_ptr() as *mut i32,
+				CString::new(name).unwrap().as_ptr() as *mut i32,
+				CString::new(object_path).unwrap().as_ptr() as *mut i32,
 				0 as *mut i32,
 				&mut err)
 		};

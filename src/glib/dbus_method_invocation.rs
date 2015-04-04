@@ -1,4 +1,4 @@
-use std::os::unix::Fd;
+use std::os::unix::io::RawFd;
 
 use glib::g_variant::GVariant;
 use bindings_glib::gint;
@@ -38,7 +38,7 @@ impl GDBusMethodInvocation {
 		}
 	}
 
-	pub fn return_result(&self, tuple: &GVariant, fds: Vec<Fd>) {
+	pub fn return_result(&self, tuple: &GVariant, fds: Vec<RawFd>) {
 		unsafe {
 			if fds.len() > 0 {
 				let fd_list = g_unix_fd_list_new_from_array(

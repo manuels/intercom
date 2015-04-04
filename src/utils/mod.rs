@@ -1,3 +1,5 @@
+pub mod io;
+
 use std::thread;
 
 pub fn spawn_thread<'a, F>(name: &'a str, func: F) -> thread::Thread

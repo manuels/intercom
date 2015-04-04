@@ -1,9 +1,7 @@
-#![allow(unstable)]
-
 use bindings_glib::{gsize,guchar, gint32};
 
 use libc::types::os::arch::c95::c_int;
-use std::os::unix::Fd;
+use std::os::unix::io::RawFd;
 use std::mem;
 
 extern "C" {
@@ -80,7 +78,7 @@ impl GVariant {
 		GVariant::from_ptr(ptr)
 	}
 
-	pub fn from_fd(fd: Fd) -> GVariant {
+	pub fn from_fd(fd: RawFd) -> GVariant {
 		let ptr = unsafe { g_variant_new_handle(fd as gint32) };
 
 		GVariant::from_ptr(ptr)
@@ -109,7 +107,7 @@ impl GVariant {
 			let len = g_variant_n_children(self.ptr);
 
 			let mut vec = Vec::with_capacity(len as usize);
-			for i in range(0, len) {
+			for i in 0..len {
 				let ptr = g_variant_get_child_value(self.ptr, i);
 				assert!(!ptr.is_null());
 

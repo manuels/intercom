@@ -1,5 +1,4 @@
 use libc::types::os::arch::c95::c_long;
-use std::thread::Thread;
 use std::mem;
 
 use dbus_request::DBusRequest;
@@ -24,9 +23,9 @@ use utils::spawn_thread;
 use glib::dbus_method_invocation::GDBusMethodInvocation as GInvocation;
 use glib::g_variant::GVariant;
 use glib::g_object::GObject;
-use from_pointer::cstr;
+use std::ffi::CString;
 
-use std::os::unix::Fd;
+use std::os::unix::io::RawFd;
 use std::sync::mpsc::channel;
 use std::sync::mpsc::Sender;
 use std::sync::mpsc::Receiver;
@@ -45,7 +44,7 @@ extern fn on_name_acquired(conn: c_long,
 	debug!("on_name_acquired");
 
 	let pair = (conn, name);
-	let res = unsafe { (*user_data).send(pair) };
+	let res = (*user_data).send(pair);
 
 	if res.is_err() {
 		panic!("on_name_acquired(): send() failed!");
@@ -54,7 +53,7 @@ extern fn on_name_acquired(conn: c_long,
 	FALSE
 }
 
-extern fn connect_to_node(DBus_obj:  *mut i32,
+extern fn connect_to_node(_:         *mut i32,
 			invocation_ptr:          *mut i32,
 			fd_list:                 *mut i32,
 			gvar_remote_public_key:  *mut i32,
@@ -119,7 +118,7 @@ impl DBusService<GInvocation> {
 		let ptr = Box::new(tx);
 		let res = unsafe {
 			g_bus_own_name(bus_type.bits(),
-				cstr(service_name).as_ptr(),
+				CString::new(service_name).unwrap().as_ptr(),
 				flags.bits(),
 				None,
 				mem::transmute(Some(on_name_acquired)),
@@ -129,7 +128,7 @@ impl DBusService<GInvocation> {
 		};
 		assert!(res > 0);
 
-		let (conn, name) = rx.recv().unwrap();
+		let (conn, _) = rx.recv().unwrap();
 		debug!("DBus name {} acquired", service_name);
 
 		conn as *mut i32
@@ -178,7 +177,7 @@ impl<R:'static+DBusResponder+Send> Iterator for DBusService<R> {
 }
 
 impl DBusResponder for GInvocation {
-	fn respond_ok(&self, fd: Fd) -> Result<(),()> {
+	fn respond_ok(&self, fd: RawFd) -> Result<(),()> {
 		let result = GVariant::new_tuple(vec![GVariant::from_fd(fd)]);
 
 		self.return_result(&result, vec![fd]);
