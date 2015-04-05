@@ -41,6 +41,8 @@ use utils::io::{FdIo};
 use libc::consts::os::bsd44::SOCK_DGRAM;
 use libc::consts::os::bsd44::AF_UNIX;
 use ::syscalls::socketpair;
+use ssl::SslChannel;
+use utils::socket::ChannelToSocket;
 
 type DHT = FakeDHT;
 type SharedKey = Vec<u8>;
@@ -144,7 +146,9 @@ impl<R:DBusResponder> DBusRequest<R>
 			                               &mut agent,
 			                               dht);
 			info!("{}\tloop: fd={:?}", controlling_mode, fd.is_ok());
-			sleep_ms(1000);
+			if fd.is_err() {
+				sleep_ms(500);
+			}
 		}
 
 		fd
@@ -163,13 +167,14 @@ impl<R:DBusResponder> DBusRequest<R>
 	                        dht:               &mut DHT)
 		-> Result<RawFd,ConnectError>
 	{
+		let (txA, rxA) = channel();
+		let (txB, rxB) = channel();
 		let ttl = Duration::minutes(5);
+
 		let publish_local_credentials = |dht: &mut DHT, c| dht.put(&my_hash, &c, ttl);
 		let lookup_remote_credentials = |dht: &mut DHT| dht.get(&your_hash);
 		let p2p_connect = |agent: &mut IceAgent, c| {
-			let (tx, irx) = channel();
-			let (itx, rx) = channel();
-			agent.stream_to_channel(&c, itx, irx).map(|_| (tx,rx))
+			agent.stream_to_channel(&c, txA, rxB).map(|_| (txB,rxA))
 		};
 		/*let prepend_time = |mut c| {
 			let mut v = time::get_time().to_vec();
@@ -186,7 +191,7 @@ impl<R:DBusResponder> DBusRequest<R>
 			//.and_then(select_most_recent)
 			.and_then(|c| {debug!("DBusRequest: remote creds='{}'", ::std::str::from_utf8(&c).unwrap()); Ok(c)})
 			.and_then(|c| p2p_connect(agent, c).map_err(|_|ConnectError::REMOTE_CREDENTIALS_NOT_FOUND))
-			.and_then(|(tx,rx)| self.ssl_connect(tx, rx, &local_private_key, is_server, &your_hash, &cert))
+			.and_then(|ch| self.ssl_connect(ch, &local_private_key, is_server, &your_hash, &cert))
 	}
 
 	fn split_secret_key(shared_key: &Vec<u8>) -> (Vec<u8>, Vec<u8>, Vec<u8>)
@@ -242,55 +247,13 @@ impl<R:DBusResponder> DBusRequest<R>
 		}
 	}
 
-	fn op(&self, fd: RawFd, mut stream: SslStream<DgramUnixSocket>) {
-		let mut stream1 = Arc::new(Mutex::new(stream));
-		let mut stream2 = stream1.clone();
-		thread::Builder::new().name("op::send".to_string()).spawn(move || {
-			loop {
-				let mut buf = Vec::with_capacity(4096);
-				let len = stream1.lock().unwrap().read(buf.as_mut_slice()).unwrap();
-				buf.truncate(len);
-
-				let res = unsafe {
-					send(fd, buf.as_ptr() as *const c_void,
-						buf.len() as size_t, 0)
-				};
-				if res != buf.len() as ssize_t {
-					panic!("send(): failed (res={})", res);
-				}
-			}
-		});
-
-		thread::Builder::new().name("op::recv".to_string()).spawn(move || {
-			loop {
-				let mut buf = Vec::with_capacity(4096);
-
-				let res = unsafe {
-					recv(fd, buf.as_mut_ptr() as *mut c_void,
-						buf.capacity() as size_t, 0)
-				};
-				if res < 0 {
-					panic!("recv(): failed (res={})", res);
-				} else {
-					unsafe {
-						buf.set_len(res as usize);
-					}
-
-					let mut s = stream2.lock().unwrap();
-					s.write(buf.as_slice()).unwrap();
-					s.flush();
-				}
-			}
-		});
-	}
-
-	fn ssl_connect(&self, tx: Sender<Vec<u8>>, rx: Receiver<Vec<u8>>,
+	fn ssl_connect(&self, ciphertext_ch: (Sender<Vec<u8>>, Receiver<Vec<u8>>),
 			private_key: &PrivateKey, is_server: bool, your_hash: &Vec<u8>,
 			cert: &X509) -> Result<RawFd,ConnectError>
 	{
 		info!("{}\tssl_connect()", is_server);
 		fn callback(_preverify_ok: bool, x509_ctx: &X509StoreContext, expected_hash: &Vec<u8>) -> bool{
-			info!("ssl_connect callback");
+			info!("ssl x509 callback");
 
 			/*if (x509_ctx.get_error().is_some()) {
 				return false;
@@ -333,47 +296,13 @@ impl<R:DBusResponder> DBusRequest<R>
 		try!(ctx.check_private_key().map_err(log_error));
 		try!(ctx.set_cipher_list(cipher).map_err(log_error));
 
-		ctx.set_verify_with_data(ssl::SSL_VERIFY_PEER | ssl::SSL_VERIFY_FAIL_IF_NO_PEER_CERT,
-			callback, your_hash.clone());
+		let flags = ssl::SSL_VERIFY_PEER | ssl::SSL_VERIFY_FAIL_IF_NO_PEER_CERT;
+		ctx.set_verify_with_data(flags, callback, your_hash.clone());
 
-		let stream = match is_server {
-			true => try!(SslStream::new_server(&ctx, insecure_rw).map_err(log_error)),
-			false => try!(SslStream::new(&ctx, insecure_rw).map_err(log_error)),
-		};
+		let (plaintext_fd, plaintext_ch) = ChannelToSocket::new(AF_UNIX, SOCK_DGRAM, 0).unwrap();
+		SslChannel::new(&ctx, is_server, ciphertext_ch, plaintext_ch).unwrap();
 
-		/*
-			rx.recv() => insecure_rw.write() => SSL_pending? => stream.read() => send(fd)
-
-			fd => rx
-			recv(fd) => stream.write() => insecure_rw.read() => tx.send()
-			handshake:                    insecure_rw.read() => tx.send() 
-		*/
-
-		/*
-		// if input is readable, output is (maybe) readable, too
-		let output = ReadWriteToRawFd::new(stream, maybe_readable, SOCK_DGRAM);
-
-		// rw -> (tx,rx) => sock
-		// ToChannel(rw) => (tx,rx) => sock
-
-		Ok(output)*/
-		let (fd_out, internal) = socketpair(AF_UNIX, SOCK_DGRAM, 0).unwrap();
-
-		let reader = FdIo::from_fd(internal);
-		let writer = FdIo::from_fd(internal);
-/*
-
-		//self.op(internal, stream);
-		let input = Arc::new(Mutex::new(FdIo::from_fd(internal)));
-		let output = Arc::new(Mutex::new(stream));
-
-		input.redirect_to(&output);
-		output.redirect_to(&input);
-//		FdIo::from_fd(internal).redirect_to(stream);
-//		stream.redirect_to(FdIo::from_fd(internal));
-
-		*/
-		Ok(fd_out)
+		Ok(plaintext_fd)
 	}
 }
 
@@ -480,10 +409,10 @@ mod tests {
 			assert!(result.is_ok());
 
 			let fd = result.unwrap_or(-1);
+			info!("fd1={:?}", fd);
 			unsafe {
 				send(fd, vec![0u8].as_slice().as_ptr() as *const c_void, 1, 0);
 			}
-			info!("fd1={:?}", fd);
 			req1.invocation.respond(Ok(fd)).unwrap();
 			barrier1.wait();
 			drop(req1);

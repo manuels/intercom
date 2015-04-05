@@ -1,4 +1,6 @@
 pub mod io;
+pub mod pipe;
+pub mod socket;
 
 use std::thread;
 

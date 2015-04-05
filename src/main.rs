@@ -53,7 +53,7 @@ mod from_pointer;
 mod fake_dht;
 mod utils;
 mod syscalls;
-//mod ssl;
+mod ssl;
 
 pub enum ConnectError {
 	REMOTE_CREDENTIALS_NOT_FOUND,
