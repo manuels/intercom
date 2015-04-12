@@ -2,6 +2,19 @@
 name = "main"
 version = "0.0.1"
 authors = ["Manuel Schölling <manuel.schoelling@gmx.de>"]
+build = "build.rs"
+
+[dependencies]
+time = "*"
+byteorder = "*"
+log = "0.3.1"
+bitflags = "0.1.1"
+libc = "*"
+env_logger = "*"
+
+[build-dependencies]
+gcc = "*"
+pkg-config = "*"
 
 [dependencies.ecdh]
 git = "https://github.com/manuels/ecdh.rs.git"
@@ -9,13 +22,9 @@ git = "https://github.com/manuels/ecdh.rs.git"
 [dependencies.openssl]
 #git = "https://github.com/sfackler/rust-openssl.git"
 path = "../rust-openssl/openssl"
-version = "0.5.0"
+version = "0.6.0"
 features = ["dtlsv1"]
 
 [dependencies.nice]
 path = "../nice"
 #git = "https://github.com/manuels/libnice.rs.git"
-
-[dependencies]
-time = "*"
-byteorder = "*"

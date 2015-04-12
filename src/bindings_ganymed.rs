@@ -331,7 +331,7 @@ extern "C" {
 /*
 Ganymed * ganymed_skeleton_new() [struct _Ganymed *]
 */
-#[link_args="./src/ganymed-bindings.o"]
+#[link(name="ganymed")]
 extern "C" {
 	pub fn ganymed_skeleton_new() -> *mut _Ganymed;
 }

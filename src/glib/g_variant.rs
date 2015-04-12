@@ -3,6 +3,7 @@ use bindings_glib::{gsize,guchar, gint32};
 use libc::types::os::arch::c95::c_int;
 use std::os::unix::io::RawFd;
 use std::mem;
+use std::slice;
 
 extern "C" {
 	fn g_variant_new_fixed_array(typ: *const u8,
@@ -59,7 +60,7 @@ impl GVariant {
 
 		let ptr = unsafe {
 			let typ = "y".as_ptr();
-			g_variant_new_fixed_array(typ, vec.as_slice().as_ptr(),
+			g_variant_new_fixed_array(typ, vec.as_ptr(),
 				vec.len() as gsize, mem::size_of::<u8>() as gsize)
 		};
 
@@ -98,7 +99,7 @@ impl GVariant {
 		assert!(!ptr.is_null());
 
 		unsafe {
-			Vec::from_raw_buf(ptr, len as usize)
+			slice::from_raw_parts(ptr, len as usize).to_vec()
 		}
 	}
 

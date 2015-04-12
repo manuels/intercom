@@ -6,7 +6,6 @@ use std::io::ErrorKind;
 use std::io::Read;
 use std::io::Write;
 use libc::types::common::c95::c_void;
-use std::os;
 
 pub struct DgramUnixSocket {
 	fd: RawFd

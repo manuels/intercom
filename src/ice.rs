@@ -1,10 +1,7 @@
 #![allow(dead_code)]
 
-use std::os::unix::io::RawFd;
 use std::sync::mpsc::{Sender,Receiver};
 use std::vec::Vec;
-use std::sync::Future;
-use std::thread::Thread;
 use libc;
 
 use nice::agent::NiceAgent;
@@ -25,7 +22,7 @@ impl IceAgent {
 	pub fn new(controlling_mode: bool) -> Result<IceAgent,()>
 	{
 		let mainloop  = GMainLoop::new();
-		let ctx       = *mainloop.get_context() as *mut GMainContext;
+		let ctx       = mainloop.get_context() as *mut GMainContext;
 		let mut agent = try!(NiceAgent::new(ctx, controlling_mode));
 
 		let (stream, state_rx) = try!(agent.add_stream(Some("ganymed")));

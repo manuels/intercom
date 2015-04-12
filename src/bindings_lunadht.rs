@@ -291,7 +291,7 @@ void luna_dht_proxy_new()
 	(int) callback
 	(int) user_data
 */
-#[link_args="./src/network-bindings.o"]
+#[link(name="network")]
 extern "C" {
 	pub fn luna_dht_proxy_new(connection: *mut libc::c_int, flags: libc::c_int, name: *const libc::c_int, object_path: *const libc::c_int, cancellable: *mut libc::c_int, callback: libc::c_int, user_data: libc::c_int);
 }

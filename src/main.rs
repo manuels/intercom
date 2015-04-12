@@ -1,17 +1,4 @@
-#![feature(rustc_private)]
-#![feature(link_args)]
-#![feature(libc)]
-#![feature(io)]
-#![feature(os)]
-#![feature(old_io)]
-#![feature(core)]
-#![feature(collections)]
-#![feature(old_path)]
-#![feature(std_misc)]
-#![feature(io_ext)]
-#![feature(convert)]
-
-#[macro_use] extern crate rustc_bitflags;
+#[macro_use] extern crate bitflags;
 #[macro_use] extern crate log;
 extern crate time;
 extern crate libc;
@@ -21,7 +8,7 @@ extern crate openssl;
 extern crate byteorder;
 
 use std::os::unix::io::RawFd;
-use std::sync::Future;
+use std::thread;
 use time::Duration;
 use std::env;
 use std::borrow::Borrow;
@@ -41,7 +28,7 @@ use openssl::crypto::hash::Type::SHA256;
 use openssl::x509::{X509,X509Generator,KeyUsage,ExtKeyUsage};
 
 mod dht;
-mod dgram_unix_socket;
+//mod dgram_unix_socket;
 mod dbus_service;
 mod dbus_request;
 mod ice;
@@ -55,6 +42,7 @@ mod utils;
 mod syscalls;
 mod ssl;
 
+#[derive(Debug)]
 pub enum ConnectError {
 	REMOTE_CREDENTIALS_NOT_FOUND,
 	FOO,
@@ -88,7 +76,7 @@ trait DHT {
 fn generate_cert(private_key: &PrivateKey) -> Result<X509,()> {
 	let mut buf = Cursor::new(vec![0u8; 4*1024]);
 
-	private_key.to_pem(&mut buf);
+	private_key.to_pem(&mut buf).unwrap();
 	buf.set_position(0);
 	let pkey = try!(PKey::private_key_from_pem(&mut buf).map_err(|_| ()));
 
@@ -111,25 +99,21 @@ fn main() {
 	let mut args = env::args();
 	args.next();
 	let dbus_path = args.next().unwrap();
-	let local_private_key = args.next().unwrap().into_bytes().map_in_place(|x| x as i8);
+	let local_private_key = args.next().unwrap().into_bytes();
 
 	let dbus_service = DBusService::new(dbus_path.borrow());
 
 	for request in dbus_service {
 		let my_private_key = local_private_key.clone();
 
-		Future::spawn(move || {
+		thread::spawn(move || {
 			let my_private_key = PrivateKey::from_vec(&my_private_key).unwrap();
 
 			let my_public_key   = my_private_key.get_public_key();
-			let your_public_key = PublicKey::from_vec(&request.remote_public_key.clone().map_in_place(|x| x as i8)).unwrap();
+			let your_public_key = PublicKey::from_vec(&request.remote_public_key.clone()).unwrap();
 
-			let mut my_hash   = vec![];
-			let mut your_hash = vec![];
-			my_hash.push_all(my_public_key.to_vec().map_in_place(|x| x as u8).as_slice());
-			my_hash.push_all(your_public_key.to_vec().map_in_place(|x| x as u8).as_slice());
-			your_hash.push_all(your_public_key.to_vec().map_in_place(|x| x as u8).as_slice());
-			your_hash.push_all(my_public_key.to_vec().map_in_place(|x| x as u8).as_slice());
+			let my_hash   = my_public_key.to_vec() + &your_public_key.to_vec()[..];
+			let your_hash = your_public_key.to_vec() + &my_public_key.to_vec()[..];
 
 			let shared_key = ECDH::compute_key(&my_private_key, &your_public_key).unwrap();
 

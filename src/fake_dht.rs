@@ -2,8 +2,8 @@ use time::Duration;
 use std::sync::{Arc, Mutex};
 use std::fs::OpenOptions;
 use std::io::{Read,Write};
+use std::iter;
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
-use std::path::Path;
 
 pub struct FakeDHT {
 	m: Arc<Mutex<i32>>,
@@ -34,15 +34,13 @@ impl ::DHT for FakeDHT {
 			if klen.is_err() { break; }
 
 			let klen = klen.unwrap() as usize;
-			let mut ekey = Vec::new();
-			ekey.resize(klen, 0);
-			file.read(ekey.as_mut_slice()).unwrap();
+			let mut ekey = iter::repeat(0).take(klen).collect::<Vec<_>>();
+			file.read(&mut ekey[..]).unwrap();
 
 			let vlen = file.read_u32::<LittleEndian>();
 			let vlen = vlen.unwrap() as usize;
-			let mut eval = Vec::new();
-			eval.resize(vlen, 0);
-			file.read(eval.as_mut_slice()).unwrap();
+			let mut eval = iter::repeat(0).take(vlen).collect::<Vec<_>>();
+			file.read(&mut eval[..]).unwrap();
 
 			if &ekey == key {
 				last_match = Some(eval);
@@ -50,7 +48,7 @@ impl ::DHT for FakeDHT {
 		}
 
 		debug!("get(): {:?}=len({:?})",
-			::std::str::from_utf8(key.as_slice()),
+			::std::str::from_utf8(&key[..]),
 			last_match.clone().map(|x| x.len()));
 
 		drop(lock);
@@ -67,14 +65,14 @@ impl ::DHT for FakeDHT {
 		let mut file = OpenOptions::new().write(true).append(true).open("/tmp/fake_dht.txt").unwrap();
 
 		debug!("put(): {:?}=len({:?})",
-			::std::str::from_utf8(key.as_slice()),
+			::std::str::from_utf8(&key[..]),
 			value.len());
 
 		file.write_u32::<LittleEndian>(key.len() as u32).unwrap();
-		file.write_all(key.as_slice()).unwrap();
+		file.write_all(&key[..]).unwrap();
 
 		file.write_u32::<LittleEndian>(value.len() as u32).unwrap();
-		file.write_all(value.as_slice()).unwrap();
+		file.write_all(&value[..]).unwrap();
 
 		drop(lock);
 		Ok(())

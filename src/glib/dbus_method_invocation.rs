@@ -42,7 +42,7 @@ impl GDBusMethodInvocation {
 		unsafe {
 			if fds.len() > 0 {
 				let fd_list = g_unix_fd_list_new_from_array(
-					fds.as_slice().as_ptr(),
+					fds.as_ptr(),
 					fds.len() as gint);
 				assert!(!fd_list.is_null());
 				
