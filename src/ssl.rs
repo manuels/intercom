@@ -12,6 +12,7 @@ use openssl::ssl::error::SslError;
 use openssl::bio::SocketBio;
 
 use utils::pipe::ChannelToReadWrite;
+use utils::is_readable::IsReadable;
 use utils::socket::ChannelToSocket;
 
 use syscalls;
@@ -32,8 +33,8 @@ impl SslChannel
 		let (ciphertext_tx, ciphertext_rx) = ciphertext_ch;
 		let (plaintext_tx,  plaintext_rx)  = plaintext_ch;
 
+		let (ciphertext_rx, is_readable) = IsReadable::new(ciphertext_rx);
 		let ciphertext_fd = ChannelToSocket::new_from(AF_UNIX, SOCK_DGRAM, 0, ciphertext_tx, ciphertext_rx, true).unwrap();
-
 
 		info!("{} SSL pre handshake 1/2 ciphertext_fd={}", is_server, ciphertext_fd);
 		let stream = match is_server {
@@ -56,7 +57,7 @@ impl SslChannel
 			is_server: is_server,
 		};
 
-		channel.spawn_read(plaintext_tx);
+		channel.spawn_read(plaintext_tx, is_readable);
 		channel.spawn_write(plaintext_rx);
 
 		Ok(channel)
@@ -82,7 +83,9 @@ impl SslChannel
 		}).unwrap();
 	}
 
-	fn spawn_read(&self, plaintext_tx:  Sender<Vec<u8>>)
+	fn spawn_read(&self,
+	              plaintext_tx:  Sender<Vec<u8>>,
+	              is_readable:   Arc<(Mutex<bool>, Condvar)>)
 	{
 		let stream = self.stream.clone();
 		let is_server = self.is_server;
@@ -92,19 +95,24 @@ impl SslChannel
 				let mut buf = vec![0; 8*1024];
 				debug!("{} SSL_read: wait 1/2", is_server);
 
+				let &(ref lock, ref cvar) = &*is_readable;
+				let mut readable = lock.lock().unwrap();
+				while !*readable {
+    				readable = cvar.wait(readable).unwrap();
+				}
+
 				let mut s = stream.lock().unwrap();
 				info!("ssl rbio pending: {}", (*s.ssl.get_rbio::<SocketBio>()).pending());
 
-				//if s.pending().unwrap() > 0 {
-					let len = s.read(&mut buf[..]).unwrap();
-					info!("{} SSL_read: !!!!!!!! done (len={}) !!!!!!!! 2/2", is_server, len);
+				let len = s.read(&mut buf[..]).unwrap();
+				info!("{} SSL_read: !!!!!!!! done (len={}) !!!!!!!! 2/2", is_server, len);
+
+				if len > 0 {
 					buf.truncate(len);
 					plaintext_tx.send(buf).unwrap();
-				//} else {
-				//	info!("{} SSL_read: nothing to read: pending=0 2/2", is_server);
-				//}
+				}
 
-				thread::sleep_ms(100);
+				*readable = false;
 			}
 		}).unwrap();
 	}

@@ -1,5 +1,6 @@
 pub mod pipe;
 pub mod socket;
+pub mod is_readable;
 
 use std::thread;
 
