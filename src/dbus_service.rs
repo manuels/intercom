@@ -188,6 +188,8 @@ impl DBusResponder for GInvocation {
 		let (name, msg) = match err {
 			ConnectError::REMOTE_CREDENTIALS_NOT_FOUND => 
 				("org.manuel.Ganymed.credentials_not_found", ""),
+			ConnectError::NICE_CONNECT_FAILED => 
+				("org.manuel.Ganymed.nice_connect_failed", ""),
 			ConnectError::FOO =>
 				("org.manuel.Ganymed.not_implemented", ""),
 		};

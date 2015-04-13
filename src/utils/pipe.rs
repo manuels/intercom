@@ -13,17 +13,17 @@ impl Pipe {
 		Pipe::new_from_channels(channel(), channel())
 	}
 
-	pub fn new_from_channels(chA: (Sender<Vec<u8>>, Receiver<Vec<u8>>),
-	                         chB: (Sender<Vec<u8>>, Receiver<Vec<u8>>))
+	pub fn new_from_channels(ch_a: (Sender<Vec<u8>>, Receiver<Vec<u8>>),
+	                         ch_b: (Sender<Vec<u8>>, Receiver<Vec<u8>>))
 	 -> (ChannelToReadWrite,ChannelToReadWrite)
 	{
-		let (txA, rxA) = chA;
-		let (txB, rxB) = chB;
+		let (tx_a, rx_a) = ch_a;
+		let (tx_b, rx_b) = ch_b;
 
-		let rwA = ChannelToReadWrite::new(txA, rxA);
-		let rwB = ChannelToReadWrite::new(txB, rxB);
+		let rw_a = ChannelToReadWrite::new(tx_a, rx_a);
+		let rw_b = ChannelToReadWrite::new(tx_b, rx_b);
 
-		(rwA, rwB)
+		(rw_a, rw_b)
 	}
 }
 

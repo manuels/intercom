@@ -36,7 +36,6 @@ mod bindings_lunadht;
 mod bindings_glib;
 mod bindings_ganymed;
 mod glib;
-mod from_pointer;
 mod fake_dht;
 mod utils;
 mod syscalls;
@@ -45,6 +44,7 @@ mod ssl;
 #[derive(Debug)]
 pub enum ConnectError {
 	REMOTE_CREDENTIALS_NOT_FOUND,
+	NICE_CONNECT_FAILED,
 	FOO,
 }
 

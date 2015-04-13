@@ -3,7 +3,6 @@ extern crate time;
 use std::os::unix::io::RawFd;
 use time::Duration;
 use time::PreciseTime;
-use time::Timespec;
 use std::thread::sleep_ms;
 use std::io::Cursor;
 use std::sync::mpsc::channel;
@@ -25,7 +24,6 @@ use openssl::ssl::{SslContext, SslMethod};
 use openssl::ssl;
 use openssl::ssl::error::SslError;
 
-
 use ::DHT as DHT_pull_in_scope;
 use ::ConnectError;
 use ::DBusResponder;
@@ -40,48 +38,6 @@ type SharedKey = Vec<u8>;
 
 const HMAC_HASH: hash::Type = hash::Type::SHA512;
 const CRYPTO: crypto::symm::Type = crypto::symm::Type::AES_256_CBC;
-
-trait ToVec {
-	fn to_vec(&self) -> Vec<u8>;
-	fn from_vec(vec: &Vec<u8>) -> Timespec;
-}
-
-impl ToVec for Timespec {
-	fn to_vec(&self) -> Vec<u8> {
-		vec![
-		 ((self.sec  >> 54) & 0xff) as u8,
-		 ((self.sec  >> 48) & 0xff) as u8,
-		 ((self.sec  >> 40) & 0xff) as u8,
-		 ((self.sec  >> 32) & 0xff) as u8,
-		 ((self.sec  >> 24) & 0xff) as u8,
-		 ((self.sec  >> 16) & 0xff) as u8,
-		 ((self.sec  >>  8) & 0xff) as u8,
-		 ((self.sec  >>  0) & 0xff) as u8,
-		 ((self.nsec >> 24) & 0xff) as u8,
-		 ((self.nsec >> 16) & 0xff) as u8,
-		 ((self.nsec >>  8) & 0xff) as u8,
-		 ((self.nsec >>  0) & 0xff) as u8,
-		]
-	}
-
-	fn from_vec(vec: &Vec<u8>) -> Timespec {
-		assert!(vec.len() == 12);
-
-		let sec = 0 |
-			(vec[0] as i64) << 54 | (vec[1] as i64) << 48 |
-			(vec[2] as i64) << 40 | (vec[3] as i64) << 32 |
-			(vec[4] as i64) << 24 | (vec[5] as i64) << 16 |
-			(vec[6] as i64) <<  8 | (vec[7] as i64) <<  0;
-		let nsec = 0 |
-			(vec[8] as i32) << 24 | (vec[9] as i32) << 16 |
-			(vec[10] as i32) <<  8 | (vec[11] as i32) <<  0;
-
-		Timespec {
-			sec:  sec,
-			nsec: nsec
-		}
-	}
-}
 
 pub struct DBusRequest<R:DBusResponder> {
 	pub invocation:        R,
@@ -143,6 +99,8 @@ impl<R:DBusResponder> DBusRequest<R>
 		}
 
 		thread::spawn(move || {
+			// keep agent alive
+			// TODO: we can do this better!
 			loop {
 				sleep_ms(1000);
 			}
@@ -165,16 +123,17 @@ impl<R:DBusResponder> DBusRequest<R>
 	                        dht:               &mut DHT)
 		-> Result<RawFd,ConnectError>
 	{
-		let (txA, rxA) = channel();
-		let (txB, rxB) = channel();
 		let ttl = Duration::minutes(5);
 
 		let publish_local_credentials = |dht: &mut DHT, c| dht.put(&my_hash, &c, ttl);
 		let lookup_remote_credentials = |dht: &mut DHT| dht.get(&your_hash);
 		let p2p_connect = |agent: &mut IceAgent, c| {
-			let res = agent.stream_to_channel(&c, txA, rxB).map(|_| (txB,rxA));
+			let (my_tx, your_rx) = channel();
+			let (your_tx, my_rx) = channel();
 
-			res
+			agent.stream_to_channel(&c, my_tx, my_rx)
+				.map(|_| (your_tx, your_rx))
+				.map_err(|_| ConnectError::NICE_CONNECT_FAILED)
 		};
 		/*let prepend_time = |mut c| {
 			let mut v = time::get_time().to_vec();
@@ -184,31 +143,36 @@ impl<R:DBusResponder> DBusRequest<R>
 
 		Ok(agent.get_local_credentials())
 			//.and_then(|c| prepend_time(c))
-			.and_then(|c| DBusRequest::<R>::encrypt(shared_key, &c))
+			.and_then(|c| DBusRequest::<R>::encrypt_then_mac(shared_key, &c))
 			.and_then(|c| publish_local_credentials(dht, c).map_err(|_| unimplemented!()))
 			.and_then(|_| lookup_remote_credentials(dht).map_err(|_| ConnectError::REMOTE_CREDENTIALS_NOT_FOUND))
 			.and_then(|l| DBusRequest::<R>::decrypt(shared_key, &l))
 			//.and_then(select_most_recent)
 			.and_then(|c| {debug!("DBusRequest: remote creds='{}'", ::std::str::from_utf8(&c).unwrap()); Ok(c)})
-			.and_then(|c| p2p_connect(agent, c).map_err(|_| ConnectError::REMOTE_CREDENTIALS_NOT_FOUND))
+			.and_then(|c| p2p_connect(agent, c))
 			.and_then(|ch| self.ssl_connect(ch, &local_private_key, is_server, &your_hash, &cert))
 	}
 
+	/// bloat up 512-bit shared ECDH key to 768 bits (key, IC, hash = 3*256 bits)
 	fn split_secret_key(shared_key: &Vec<u8>) -> (Vec<u8>, Vec<u8>, Vec<u8>)
 	{
 		assert_eq!(shared_key.len(), 512/8);
+		let (key, seed) = shared_key[..].split_at(256/8);
 
-		let (key, seed) = shared_key[..].split_at(512/8/2);
-
+		assert_eq!(seed.len(), 256/8);
 		let typ = hash::Type::SHA512;
 		let md  = hash::hash(typ, seed);
-		let (iv, hash) = md[..].split_at(512/8/2);
+		let (iv, hash) = md[..].split_at(256/8);
+
+		assert_eq!(key.len(),  256/8);
+		assert_eq!(iv.len(),   256/8);
+		assert_eq!(hash.len(), 256/8);
 
 		(key.to_vec(), iv.to_vec(), hash.to_vec())
 	}
 
-	fn encrypt(shared_key: &Vec<u8>,
-	           plaintext:  &Vec<u8>)
+	fn encrypt_then_mac(shared_key: &Vec<u8>,
+	                    plaintext:  &Vec<u8>)
 		-> Result<Vec<u8>,ConnectError>
 	{
 		let (key, iv, hash) = DBusRequest::<R>::split_secret_key(shared_key);
@@ -217,10 +181,10 @@ impl<R:DBusResponder> DBusRequest<R>
 		assert_eq!(iv.len(),   256/8);
 		assert_eq!(hash.len(), 256/8);
 
-		info!("keylen={}", key.len());
 		let ciphertext = crypto::symm::encrypt(CRYPTO, &key[..], iv.to_vec(), plaintext);
 
-		let res = hmac::hmac(HMAC_HASH, &hash[..], &ciphertext[..]) + &ciphertext[..];
+		let res = hmac::hmac(HMAC_HASH, &hash[..], &ciphertext[..])
+			+ &ciphertext[..];
 
 		Ok(res)
 	}
@@ -234,10 +198,9 @@ impl<R:DBusResponder> DBusRequest<R>
 
 		let (key, iv, hash) = DBusRequest::<R>::split_secret_key(shared_key);
 
-		let (actual_hmac,ctxt) = ctxt.split_at(HMAC_HASH.md_len());
+		let (actual_hmac, ctxt) = ctxt.split_at(HMAC_HASH.md_len());
 		let expected_hmac = hmac::hmac(HMAC_HASH, &hash[..], &ctxt[..]);
 
-		info!("de keylen={}", key.len());
 		let plaintext = crypto::symm::decrypt(CRYPTO, &key[..], iv.to_vec(), &ctxt[..]);
 
 		assert_eq!(actual_hmac.len(), expected_hmac.len());
@@ -248,9 +211,13 @@ impl<R:DBusResponder> DBusRequest<R>
 		}
 	}
 
-	fn ssl_connect(&self, ciphertext_ch: (Sender<Vec<u8>>, Receiver<Vec<u8>>),
-			private_key: &PrivateKey, is_server: bool, your_hash: &Vec<u8>,
-			cert: &X509) -> Result<RawFd,ConnectError>
+	fn ssl_connect(&self,
+	               ciphertext_ch: (Sender<Vec<u8>>, Receiver<Vec<u8>>),
+	               private_key: &PrivateKey,
+	               is_server: bool,
+	               your_hash: &Vec<u8>,
+	               cert: &X509)
+		-> Result<RawFd,ConnectError>
 	{
 		info!("{}\tssl_connect()", is_server);
 		fn callback(_preverify_ok: bool, x509_ctx: &X509StoreContext, expected_hash: &Vec<u8>) -> bool{
