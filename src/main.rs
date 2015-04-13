@@ -43,18 +43,9 @@ mod ssl;
 
 #[derive(Debug)]
 pub enum ConnectError {
-	REMOTE_CREDENTIALS_NOT_FOUND,
-	NICE_CONNECT_FAILED,
+	RemoteCredentialsNotFound,
+	IceConnectFailed,
 	FOO,
-}
-
-impl Display for ConnectError {
-	fn fmt(&self, fmt: &mut Formatter) -> Result<(), Error> {
-		match self {
-			REMOTE_CREDENTIALS_NOT_FOUND => fmt.write_str("REMOTE_CREDENTIALS_NOT_FOUND"),
-			//_ => fmt.write_str("undef"),
-		}
-	}
 }
 
 pub trait DBusResponder {
@@ -121,7 +112,6 @@ fn main() {
 
 			let mut dht = FakeDHT::new();
 			let result = request.handle(&my_private_key,
-			                            &my_public_key,
 			                            &your_public_key,
 			                            &shared_key.to_vec(),
 			                            &my_hash,

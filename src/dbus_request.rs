@@ -64,7 +64,6 @@ impl<R:DBusResponder> DBusRequest<R>
 
 	pub fn handle(&self,
 	              local_private_key: &PrivateKey,
-	              local_public_key:  &PublicKey,
 	              remote_public_key: &PublicKey,
 	              shared_key:        &SharedKey,
 	              my_hash:           &Vec<u8>,
@@ -78,12 +77,11 @@ impl<R:DBusResponder> DBusRequest<R>
 		let controlling_mode = (my_hash > your_hash);
 		let mut agent = try!(IceAgent::new(controlling_mode).map_err(|_|ConnectError::FOO));
 
-		let mut fd = Err(ConnectError::REMOTE_CREDENTIALS_NOT_FOUND);
+		let mut fd = Err(ConnectError::RemoteCredentialsNotFound);
 		let start = PreciseTime::now();
 
 		while fd.is_err() && start.to(PreciseTime::now()) < self.timeout {
 			fd = self.establish_connection(&local_private_key,
-			                               &local_public_key,
 			                               &remote_public_key,
 			                               &shared_key,
 			                               &my_hash,
@@ -112,7 +110,6 @@ impl<R:DBusResponder> DBusRequest<R>
 
 	fn establish_connection(&self,
 	                        local_private_key: &PrivateKey,
-	                        local_public_key:  &PublicKey,
 	                        remote_public_key: &PublicKey,
 	                        shared_key:        &SharedKey,
 	                        my_hash:           &Vec<u8>,
@@ -133,7 +130,7 @@ impl<R:DBusResponder> DBusRequest<R>
 
 			agent.stream_to_channel(&c, my_tx, my_rx)
 				.map(|_| (your_tx, your_rx))
-				.map_err(|_| ConnectError::NICE_CONNECT_FAILED)
+				.map_err(|_| ConnectError::IceConnectFailed)
 		};
 		/*let prepend_time = |mut c| {
 			let mut v = time::get_time().to_vec();
@@ -145,7 +142,7 @@ impl<R:DBusResponder> DBusRequest<R>
 			//.and_then(|c| prepend_time(c))
 			.and_then(|c| DBusRequest::<R>::encrypt_then_mac(shared_key, &c))
 			.and_then(|c| publish_local_credentials(dht, c).map_err(|_| unimplemented!()))
-			.and_then(|_| lookup_remote_credentials(dht).map_err(|_| ConnectError::REMOTE_CREDENTIALS_NOT_FOUND))
+			.and_then(|_| lookup_remote_credentials(dht).map_err(|_| ConnectError::RemoteCredentialsNotFound))
 			.and_then(|l| DBusRequest::<R>::decrypt(shared_key, &l))
 			//.and_then(select_most_recent)
 			.and_then(|c| {debug!("DBusRequest: remote creds='{}'", ::std::str::from_utf8(&c).unwrap()); Ok(c)})
@@ -182,11 +179,9 @@ impl<R:DBusResponder> DBusRequest<R>
 		assert_eq!(hash.len(), 256/8);
 
 		let ciphertext = crypto::symm::encrypt(CRYPTO, &key[..], iv.to_vec(), plaintext);
+		let mac = hmac::hmac(HMAC_HASH, &hash[..], &ciphertext[..]);
 
-		let res = hmac::hmac(HMAC_HASH, &hash[..], &ciphertext[..])
-			+ &ciphertext[..];
-
-		Ok(res)
+		Ok(mac + &ciphertext[..])
 	}
 
 	fn decrypt(shared_key:  &Vec<u8>,
@@ -194,7 +189,7 @@ impl<R:DBusResponder> DBusRequest<R>
 		-> Result<Vec<u8>,ConnectError>
 	{
 		debug!("ciphertext: {:?}", ciphertexts.get(0).map(|v| &v[..]));
-		let ctxt = try!(ciphertexts.get(0).ok_or(ConnectError::REMOTE_CREDENTIALS_NOT_FOUND));
+		let ctxt = try!(ciphertexts.get(0).ok_or(ConnectError::RemoteCredentialsNotFound));
 
 		let (key, iv, hash) = DBusRequest::<R>::split_secret_key(shared_key);
 
@@ -207,7 +202,7 @@ impl<R:DBusResponder> DBusRequest<R>
 		if crypto::memcmp::eq(&actual_hmac, &expected_hmac) {
 			Ok(plaintext)
 		} else {
-			Err(ConnectError::REMOTE_CREDENTIALS_NOT_FOUND)
+			Err(ConnectError::RemoteCredentialsNotFound)
 		}
 	}
 
@@ -242,8 +237,8 @@ impl<R:DBusResponder> DBusRequest<R>
 				}
 			}
 		};
-		let mut buf = Cursor::new(vec![0u8; 4*1024]);
 
+		let mut buf = Cursor::new(vec![0u8; 4*1024]);
 		private_key.to_pem(&mut buf).unwrap();
 		buf.set_position(0);
 		let pkey = try!(PKey::private_key_from_pem(&mut buf).map_err(|_| ConnectError::FOO));
@@ -253,22 +248,23 @@ impl<R:DBusResponder> DBusRequest<R>
 			ConnectError::FOO
 		};
 
-		let cipher = concat!("ECDHE-ECDSA-AES128-SHA256,",// won't work with DTLSv1 (but probably with v1.2)
+		let cipher = concat!(
+			"ECDHE-ECDSA-AES128-SHA256,",// won't work with DTLSv1 (but probably with v1.2)
 			"ECDHE-ECDSA-AES128-SHA256,",// won't work with DTLSv1 (but probably with v1.2)
 			"ECDHE-ECDSA-AES128-SHA,",   // won't work with DTLSv1 (but probably with v1.2)
 			"ECDH-ECDSA-AES128-SHA");    // <- this one is probably used
 
+		let flags = ssl::SSL_VERIFY_PEER | ssl::SSL_VERIFY_FAIL_IF_NO_PEER_CERT;
 		let mut ctx = SslContext::new(SslMethod::Dtlsv1).unwrap();
+		ctx.set_verify_with_data(flags, callback, your_hash.clone());
+
 		try!(ctx.set_certificate(cert).map_err(log_error));
 		try!(ctx.set_private_key(&pkey).map_err(log_error));
 		try!(ctx.check_private_key().map_err(log_error));
 		try!(ctx.set_cipher_list(cipher).map_err(log_error));
 
-		let flags = ssl::SSL_VERIFY_PEER | ssl::SSL_VERIFY_FAIL_IF_NO_PEER_CERT;
-		ctx.set_verify_with_data(flags, callback, your_hash.clone());
-
-		let (plaintext_fd, plaintext_ch) = ChannelToSocket::new(AF_UNIX, SOCK_DGRAM, 0, false).unwrap();
-		SslChannel::new(&ctx, is_server, ciphertext_ch, plaintext_ch).unwrap();
+		let (plaintext_fd, plaintext_ch) = ChannelToSocket::new(AF_UNIX, SOCK_DGRAM, 0).unwrap();
+		try!(SslChannel::new(&ctx, is_server, ciphertext_ch, plaintext_ch).map_err(log_error));
 
 		info!("{} ssl_connect done", is_server);
 		Ok(plaintext_fd)
@@ -278,8 +274,6 @@ impl<R:DBusResponder> DBusRequest<R>
 
 #[cfg(test)]
 mod tests {
-	use std::collections::HashMap;
-	use time::Duration;
 	use std::os::unix::io::RawFd;
 	use std::thread;
 	use std::sync::{Arc, Barrier};
@@ -315,21 +309,8 @@ mod tests {
 		}
 
 		fn respond_error(&self, err: ::ConnectError) -> Result<(),()> {
-			error!("!!! respond_error {} {} !!!", self.index, err);
+			error!("!!! respond_error {} {:?} !!!", self.index, err);
 			Err(())
-		}
-	}
-
-	impl ::DHT for HashMap<Vec<u8>,Vec<u8>> {
-		fn get(&self, key: &Vec<u8>) -> Result<Vec<Vec<u8>>,()> {
-			Ok(vec![self.get(key).unwrap().clone()])
-		}
-
-		fn put(&mut self, key: &Vec<u8>, value: &Vec<u8>, _: Duration)
-			->  Result<(),()>
-		{
-			self.insert(key.clone(), value.clone());
-			Ok(())
 		}
 	}
 
@@ -351,8 +332,7 @@ mod tests {
 		let alice_public_key2 = alice_public_key1.clone();
 		let alice_private_key = vec![54u8, 69, 51, 50, 69, 54, 48, 50, 54, 69, 56, 66, 54, 69, 52, 48, 54, 53, 51, 57, 57, 54, 65, 69, 70, 70, 57, 65, 69, 49, 68, 55, 53, 49, 51, 66, 69, 52, 55, 55, 56, 56, 65, 68, 53, 67, 49, 51, 51, 51, 53, 65, 48, 52, 67, 54, 54, 65, 51, 57, 57, 68, 53, 51, 65, 53, 70, 65, 50, 55, 50, 66, 54, 55, 55, 68, 66, 54, 55, 48, 69, 66, 65, 50, 66, 66, 52, 70, 49, 67, 56, 49, 57, 52, 49, 57, 68, 50, 55, 67, 55, 66, 67, 53, 68, 51, 52, 56, 51, 56, 49, 49, 54, 56, 55, 49, 68, 56, 49, 48, 55, 50, 56, 66, 50, 49, 65, 55, 67, 66];
 		let bob_private_key   = alice_private_key.clone();
-		let bob_public_key1   = alice_public_key1.clone();
-		let bob_public_key2   = bob_public_key1.clone();
+		let bob_public_key   = alice_public_key1.clone();
 
 		let alice_shared_key  = vec![0u8; 512/8];
 		let bob_shared_key    = vec![0u8; 512/8];
@@ -366,44 +346,41 @@ mod tests {
 		let barrier2 = barrier1.clone();
 
 		let thread = thread::scoped(move || {
-			let req1 = DBusRequest::new(resp1, bob_public_key1.clone(), port, timeout);
+			let req1 = DBusRequest::new(resp1, bob_public_key.clone(), port, timeout);
 
 			let key = PrivateKey::from_vec(&alice_private_key).unwrap();
 			let cert = ::generate_cert(&key);
 			let result = req1.handle(&key,
-				&PublicKey::from_vec(&alice_public_key1).unwrap(),
-				&PublicKey::from_vec(&bob_public_key1).unwrap(),
+				&PublicKey::from_vec(&bob_public_key).unwrap(),
 				&alice_shared_key,
 				&alice_hash1,
 				&bob_hash1,
 				&cert.unwrap(),
 				&mut dht1);
-			//assert!(result.is_ok());
+
 			if result.is_err() {
 				error!("{:?}", result);
 				assert!(result.is_ok());
 			}
 
 			let fd = result.unwrap_or(-1);
-			info!("fd1={:?}", fd);
-			for i in 0..1 {
-				unsafe {
-					send(fd, vec![0u8; 1].as_ptr() as *const c_void, 100, 0);
-				}
+			debug!("fd1={:?}", fd);
+			unsafe {
+				send(fd, vec![0u8; 1].as_ptr() as *const c_void, 100, 0);
 			}
 			let mut len = 0;
 			loop {
 				len = unsafe {
 					let mut buf = [0; 8*1024];
-					info!("1: test recv()...");
+					debug!("1: test recv()...");
 					recv(fd, buf.as_mut_ptr() as *mut c_void, buf.len() as u64, 0)
 				};
-				info!("1: test recv() len == {}", len);
+				debug!("1: test recv() len == {}", len);
 				if len > 0 {
 					break
 				}
 			}
-			info!("1: test recv() done");
+			debug!("1: test recv() done");
 			assert_eq!(len, 100);
 			req1.invocation.respond(Ok(fd)).unwrap();
 			barrier1.wait();
@@ -415,7 +392,6 @@ mod tests {
 		let key = PrivateKey::from_vec(&bob_private_key).unwrap();
 		let cert = ::generate_cert(&key);
 		let result = req2.handle(&key,
-			&PublicKey::from_vec(&bob_public_key2).unwrap(),
 			&PublicKey::from_vec(&alice_public_key2).unwrap(),
 			&bob_shared_key,
 			&bob_hash2,
@@ -425,25 +401,23 @@ mod tests {
 		assert!(result.is_ok());
 
 		let fd = result.unwrap_or(-1);
-		info!("fd2={:?}", fd);
-		for i in 0..1 {
-			unsafe {
-				send(fd, vec![0u8; 1].as_ptr() as *const c_void, 100, 0);
-			}
+		debug!("fd2={:?}", fd);
+		unsafe {
+			send(fd, vec![0u8; 1].as_ptr() as *const c_void, 100, 0);
 		}
 		let mut len = 0;
 		loop {
 			len = unsafe {
 				let mut buf = [0; 8*1024];
-				info!("2: test recv()...");
+				debug!("2: test recv()...");
 				recv(fd, buf.as_mut_ptr() as *mut c_void, buf.len() as u64, 0)
 			};
-			info!("2: test recv() len == {}", len);
+			debug!("2: test recv() len == {}", len);
 			if len > 0 {
 				break
 			}
 		}
-		info!("2: test recv() done");
+		debug!("2: test recv() done");
 		req2.invocation.respond(Ok(fd)).unwrap();
 		barrier2.wait();
 		

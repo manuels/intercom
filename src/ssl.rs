@@ -1,5 +1,4 @@
 use std::sync::{Arc,Mutex};
-use std::sync::Condvar;
 use std::io::{Read,Write};
 use std::sync::mpsc::{Sender,Receiver};
 use std::sync::mpsc::channel;
@@ -11,7 +10,6 @@ use openssl::ssl::{SslStream, SocketIo, SslContext};
 use openssl::ssl::error::SslError;
 use openssl::bio::SocketBio;
 
-use utils::pipe::ChannelToReadWrite;
 use utils::is_readable::IsReadable;
 use utils::socket::ChannelToSocket;
 
@@ -31,26 +29,21 @@ impl SslChannel
 		-> Result<SslChannel,SslError>
 	{
 		let (ciphertext_tx, ciphertext_rx) = ciphertext_ch;
+		let (ciphertext_rx, is_readable) = IsReadable::new(ciphertext_rx);
+		
+		let ciphertext_fd = ChannelToSocket::new_from(AF_UNIX, SOCK_DGRAM, 0, 
+			(ciphertext_tx, ciphertext_rx)).unwrap();
+
 		let (plaintext_tx,  plaintext_rx)  = plaintext_ch;
 
-		let (ciphertext_rx, is_readable) = IsReadable::new(ciphertext_rx);
-		let ciphertext_fd = ChannelToSocket::new_from(AF_UNIX, SOCK_DGRAM, 0, ciphertext_tx, ciphertext_rx, true).unwrap();
-
-		info!("{} SSL pre handshake 1/2 ciphertext_fd={}", is_server, ciphertext_fd);
+		debug!("{} SSL pre handshake 1/2 ciphertext_fd={}", is_server, ciphertext_fd);
 		let stream = match is_server {
 			true => try!(SslStream::new_server_from_socket(&ctx, ciphertext_fd)),
 			false => try!(SslStream::new_from_socket(&ctx, ciphertext_fd)),
 		};
 		info!("{} SSL handshake done! 2/2", is_server);
 
-		let O_NONBLOCK = 00004000;
-		let F_GETFL = 3;
-		let F_SETFL = 4;
-		let flags = unsafe { syscalls::fcntl(ciphertext_fd, F_GETFL, 0) };
-		assert!(flags >= 0);
-		let blocking = false;
-		let flags = if blocking { flags & !O_NONBLOCK } else { flags|O_NONBLOCK };
-		assert_eq!(unsafe { syscalls::fcntl(ciphertext_fd, F_SETFL, flags) }, 0);
+		syscalls::set_blocking(ciphertext_fd, false).unwrap();
 		
 		let channel = SslChannel {
 			stream: Arc::new(Mutex::new(stream)),
@@ -73,9 +66,11 @@ impl SslChannel
 			for buf in plaintext_rx.iter() {
 				debug!("{} plaintext_rx {} 1/3", is_server, buf.len());
 				let mut s = stream.lock().unwrap();
+
 				debug!("{} plaintext_rx calling SSL_write... 2/3", is_server);
 				let len = (*s).write(&buf[..]).unwrap(); // blocking?
 				(*s).flush().unwrap();
+
 				debug!("{} plaintext_rx SSL_written len={} 3/3", is_server, len);
 				assert_eq!(len, buf.len())
 			}
@@ -84,8 +79,8 @@ impl SslChannel
 	}
 
 	fn spawn_read(&self,
-	              plaintext_tx:  Sender<Vec<u8>>,
-	              is_readable:   Arc<(Mutex<bool>, Condvar)>)
+	              plaintext_tx:    Sender<Vec<u8>>,
+	              mut is_readable: IsReadable)
 	{
 		let stream = self.stream.clone();
 		let is_server = self.is_server;
@@ -95,25 +90,20 @@ impl SslChannel
 				let mut buf = vec![0; 8*1024];
 				debug!("{} SSL_read: wait 1/2", is_server);
 
-				let &(ref lock, ref cvar) = &*is_readable;
-				let mut readable = lock.lock().unwrap();
-				while !*readable {
-    				readable = cvar.wait(readable).unwrap();
-				}
+				is_readable.when_readable(|| {
+					let mut s = stream.lock().unwrap();
+					debug!("ssl rbio pending: {}", (*s.ssl.get_rbio::<SocketBio>()).pending());
 
-				let mut s = stream.lock().unwrap();
-				info!("ssl rbio pending: {}", (*s.ssl.get_rbio::<SocketBio>()).pending());
+					let len = s.read(&mut buf[..]).unwrap();
+					debug!("{} SSL_read: done (len={}) 2/2", is_server, len);
 
-				let len = s.read(&mut buf[..]).unwrap();
-				info!("{} SSL_read: !!!!!!!! done (len={}) !!!!!!!! 2/2", is_server, len);
-
-				if len > 0 {
-					buf.truncate(len);
-					plaintext_tx.send(buf).unwrap();
-				}
-
-				*readable = false;
+					if len > 0 {
+						buf.truncate(len);
+						plaintext_tx.send(buf.clone()).unwrap();
+					}
+				});
 			}
+			panic!("fin");
 		}).unwrap();
 	}
 }

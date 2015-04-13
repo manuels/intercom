@@ -13,20 +13,25 @@ use syscalls;
 pub struct ChannelToSocket;
 
 impl ChannelToSocket {
-	pub fn new(domain: c_int, typ: c_int, protocol: c_int, foo: bool)
+	pub fn new(domain: c_int,
+	           typ: c_int,
+	           protocol: c_int)
 		-> Result<(RawFd, (Sender<Vec<u8>>, Receiver<Vec<u8>>)), Error>
 	{
-		let (txA, rxA) = channel();
-		let (txB, rxB) = channel();
-		let fd = try!(ChannelToSocket::new_from(domain, typ, protocol, txA, rxB, foo));
+		let (tx_a, rx_a) = channel();
+		let (tx_b, rx_b) = channel();
+		let fd = try!(ChannelToSocket::new_from(domain, typ, protocol, (tx_a, rx_b)));
 
-		Ok((fd, (txB, rxA)))
+		Ok((fd, (tx_b, rx_a)))
 	}
 
-	pub fn new_from(domain: c_int, typ: c_int, protocol: c_int,
-	            tx: Sender<Vec<u8>>, rx: Receiver<Vec<u8>>, foo: bool)
+	pub fn new_from(domain: c_int,
+	                typ: c_int,
+	                protocol: c_int,
+	                ch: (Sender<Vec<u8>>,Receiver<Vec<u8>>))
 		-> Result<RawFd, Error>
 	{
+		let (tx, rx) = ch;
 		let (my_fd, your_fd) = try!(syscalls::socketpair(domain, typ, protocol));
 
 		let fd_read = my_fd;
@@ -36,11 +41,11 @@ impl ChannelToSocket {
 			loop {
 				let mut buf = vec![0u8; 8*1024];
 
-				debug!("ChannelToSocket sock-to-tx recv... fd={} foo={}", fd_read, foo);
+				debug!("ChannelToSocket sock-to-tx recv... fd={}", fd_read);
 				let len = unsafe {
 					recv(fd_read, buf.as_mut_ptr() as *mut c_void, buf.len() as size_t, 0)
 				};
-				debug!("ChannelToSocket sock-to-tx recv()'d fd={} len={} foo={}", fd_read, len, foo);
+				debug!("ChannelToSocket sock-to-tx recv()'d fd={} len={}", fd_read, len);
 
 				if len > 0 {
 					buf.truncate(len as usize);
@@ -53,11 +58,11 @@ impl ChannelToSocket {
 
 		thread::Builder::new().name("ChannelToSocket::new_from send".to_string()).spawn(move || {
 			for buf in rx.iter() {
-				debug!("ChannelToSocket rx-to-sock send()'ing fd={} len={} {}", fd_write, buf.len(), foo);
+				debug!("ChannelToSocket rx-to-sock send()'ing fd={} len={}", fd_write, buf.len());
 				let len = unsafe {
 					send(fd_write, buf.as_ptr() as *const c_void, buf.len() as size_t, 0)
 				};
-				debug!("ChannelToSocket rx-to-sock sent() fd={} len={} {}", fd_write, len, foo);
+				debug!("ChannelToSocket rx-to-sock sent() fd={} len={}", fd_write, len);
 
 				if (len as usize) != buf.len() {
 					if len < 0 {

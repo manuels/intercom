@@ -1,6 +1,10 @@
 use libc::types::os::arch::c95::c_int;
 use std::os::unix::io::RawFd;
-use std::io::Error;
+use std::io::{Result,Error};
+
+const O_NONBLOCK: c_int = 00004000;
+const F_GETFL: c_int = 3;
+const F_SETFL: c_int = 4;
 
 mod syscall {
 	use libc::types::os::arch::c95::c_int;
@@ -13,7 +17,7 @@ mod syscall {
 }
 
 pub fn socketpair(domain: c_int, typ: c_int, protocol: c_int)
-	-> Result<(RawFd, RawFd), Error>
+	-> Result<(RawFd, RawFd)>
 {
 	let mut sv = [-1 as RawFd; 2];
 
@@ -27,6 +31,17 @@ pub fn socketpair(domain: c_int, typ: c_int, protocol: c_int)
 	}
 }
 
-pub unsafe fn fcntl(fd: c_int, cmd: c_int, flags: c_int) -> c_int {
-	syscall::fcntl(fd, cmd, flags)
+pub fn set_blocking(fd: c_int, blocking: bool) -> Result<()> {
+	let flags = unsafe { syscall::fcntl(fd, F_GETFL, 0) };
+	if flags < 0 {
+		return Err(Error::last_os_error());
+	}
+
+	let flags = if blocking { flags & !O_NONBLOCK } else { flags|O_NONBLOCK };
+	let res = unsafe { syscall::fcntl(fd, F_SETFL, flags) };
+	if res != 0 {
+		return Err(Error::last_os_error());
+	}
+
+	Ok(())
 }

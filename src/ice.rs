@@ -2,12 +2,12 @@
 
 use std::sync::mpsc::{Sender,Receiver};
 use std::vec::Vec;
+use std::thread;
 use libc;
 
 use nice::agent::NiceAgent;
 use nice::glib2::GMainLoop;
 use nice::bindings_agent::GMainContext;
-use utils::spawn_thread;
 
 pub struct IceAgent {
 	agent: NiceAgent,
@@ -27,7 +27,7 @@ impl IceAgent {
 
 		let (stream, state_rx) = try!(agent.add_stream(Some("ganymed")));
 
-		spawn_thread("IceAgent::GMainLoop", move || {
+		thread::Builder::new().name("IceAgent::GMainLoop".to_string()).spawn(move || {
 			mainloop.run();
 		});
 

@@ -1,4 +1,5 @@
 use libc::types::os::arch::c95::c_long;
+use std::thread;
 use std::mem;
 
 use dbus_request::DBusRequest;
@@ -18,7 +19,6 @@ use bindings_ganymed::ganymed_skeleton_new;
 
 use ::ConnectError;
 use ::DBusResponder;
-use utils::spawn_thread;
 
 use glib::dbus_method_invocation::GDBusMethodInvocation as GInvocation;
 use glib::g_variant::GVariant;
@@ -85,7 +85,7 @@ impl DBusService<GInvocation> {
 	{
 		unsafe { g_type_init() };
 
-		spawn_thread("DBusService::GMainLoop", || {
+		thread::Builder::new().name("DBusService::GMainLoop".to_string()).spawn(move || {
 			// a bug in this thread is probably in one of the callback funcs
 			GMainLoop::new().run();
 		});
@@ -186,9 +186,9 @@ impl DBusResponder for GInvocation {
 
 	fn respond_error(&self, err: ::ConnectError) -> Result<(),()> {
 		let (name, msg) = match err {
-			ConnectError::REMOTE_CREDENTIALS_NOT_FOUND => 
+			ConnectError::RemoteCredentialsNotFound => 
 				("org.manuel.Ganymed.credentials_not_found", ""),
-			ConnectError::NICE_CONNECT_FAILED => 
+			ConnectError::IceConnectFailed => 
 				("org.manuel.Ganymed.nice_connect_failed", ""),
 			ConnectError::FOO =>
 				("org.manuel.Ganymed.not_implemented", ""),
