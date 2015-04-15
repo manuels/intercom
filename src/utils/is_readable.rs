@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use std::sync::mpsc::Receiver;
 use std::sync::mpsc::channel;
 use std::sync::{Arc,Mutex,Condvar};
@@ -42,5 +44,9 @@ impl IsReadable {
 		blk();
 
 		*readable = false;
+	}
+
+	pub fn unpack(self) -> Arc<(Mutex<bool>, Condvar)> {
+		self.is_readable
 	}
 }

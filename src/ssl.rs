@@ -79,18 +79,19 @@ impl SslChannel
 	}
 
 	fn spawn_read(&self,
-	              plaintext_tx:    Sender<Vec<u8>>,
-	              mut is_readable: IsReadable)
+	              plaintext_tx: Sender<Vec<u8>>,
+	              is_readable:  IsReadable)
 	{
 		let stream = self.stream.clone();
 		let is_server = self.is_server;
 
+		let is_readable = is_readable.unpack();
 		thread::Builder::new().name("SslChannel::spawn_read".to_string()).spawn(move || {
 			loop {
 				let mut buf = vec![0; 8*1024];
 				debug!("{} SSL_read: wait 1/2", is_server);
 
-				is_readable.when_readable(|| {
+				let mut blk = || {
 					let mut s = stream.lock().unwrap();
 					debug!("ssl rbio pending: {}", (*s.ssl.get_rbio::<SocketBio>()).pending());
 
@@ -101,9 +102,23 @@ impl SslChannel
 						buf.truncate(len);
 						plaintext_tx.send(buf.clone()).unwrap();
 					}
-				});
+				};
+
+				let &(ref lock, ref cvar) = &*is_readable;
+
+				let mut readable = lock.lock().unwrap();
+				let mut s = stream.lock().unwrap();
+				while !*readable && (*s).pending() == 0 {
+					drop(s);
+					readable = cvar.wait(readable).unwrap();
+					s = stream.lock().unwrap();
+				}
+				drop(s);
+
+				blk();
+
+				*readable = false;
 			}
-			panic!("fin");
 		}).unwrap();
 	}
 }

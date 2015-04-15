@@ -74,7 +74,7 @@ impl<R:DBusResponder> DBusRequest<R>
 	{
 		// TODO: async get and set credentials
 
-		let controlling_mode = (my_hash > your_hash);
+		let controlling_mode = if my_hash > your_hash {true} else {false};
 		let mut agent = try!(IceAgent::new(controlling_mode).map_err(|_|ConnectError::FOO));
 
 		let mut fd = Err(ConnectError::RemoteCredentialsNotFound);
@@ -368,7 +368,7 @@ mod tests {
 			unsafe {
 				send(fd, vec![0u8; 1].as_ptr() as *const c_void, 100, 0);
 			}
-			let mut len = 0;
+			let mut len;
 			loop {
 				len = unsafe {
 					let mut buf = [0; 8*1024];
@@ -405,7 +405,7 @@ mod tests {
 		unsafe {
 			send(fd, vec![0u8; 1].as_ptr() as *const c_void, 100, 0);
 		}
-		let mut len = 0;
+		let mut len;
 		loop {
 			len = unsafe {
 				let mut buf = [0; 8*1024];

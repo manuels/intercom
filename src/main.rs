@@ -12,7 +12,6 @@ use std::thread;
 use time::Duration;
 use std::env;
 use std::borrow::Borrow;
-use std::fmt::{Display,Formatter,Error};
 use std::io::Cursor;
 
 use std::fs::File;

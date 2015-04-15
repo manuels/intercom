@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use libc::types::os::arch::c95::c_long;
 use std::thread;
 use std::mem;
@@ -88,7 +89,7 @@ impl DBusService<GInvocation> {
 		thread::Builder::new().name("DBusService::GMainLoop".to_string()).spawn(move || {
 			// a bug in this thread is probably in one of the callback funcs
 			GMainLoop::new().run();
-		});
+		}).unwrap();
 
 		let bus_type = G_BUS_TYPE_SESSION;
 		let flags = G_BUS_NAME_OWNER_FLAGS_REPLACE | 

@@ -29,7 +29,7 @@ impl IceAgent {
 
 		thread::Builder::new().name("IceAgent::GMainLoop".to_string()).spawn(move || {
 			mainloop.run();
-		});
+		}).unwrap();
 
 		agent.gather_candidates(stream);
 
