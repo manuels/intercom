@@ -17,7 +17,8 @@ gcc = "*"
 pkg-config = "*"
 
 [dependencies.ecdh]
-git = "https://github.com/manuels/ecdh.rs.git"
+#git = "https://github.com/manuels/ecdh.rs.git"
+path = "../ecdh"
 
 [dependencies.openssl]
 #git = "https://github.com/sfackler/rust-openssl.git"

@@ -1,5 +1,7 @@
 extern crate time;
 
+use libc::{c_void};
+
 use std::os::unix::io::RawFd;
 use time::Duration;
 use time::PreciseTime;
@@ -16,7 +18,7 @@ use ecdh::public_key::PublicKey;
 use ecdh::private_key::PrivateKey;
 
 use openssl::crypto::hash;
-use openssl::crypto::pkey::PKey;
+use openssl::crypto::pkey::{PKey,Parts};
 use openssl::crypto;
 use openssl::crypto::hmac;
 use openssl::x509::{X509, X509StoreContext};
@@ -147,7 +149,7 @@ impl<R:DBusResponder> DBusRequest<R>
 			//.and_then(select_most_recent)
 			.and_then(|c| {debug!("DBusRequest: remote creds='{}'", ::std::str::from_utf8(&c).unwrap()); Ok(c)})
 			.and_then(|c| p2p_connect(agent, c))
-			.and_then(|ch| self.ssl_connect(ch, &local_private_key, is_server, &your_hash, &cert))
+			.and_then(|ch| self.ssl_connect(ch, &local_private_key, is_server, &remote_public_key, &cert))
 	}
 
 	/// bloat up 512-bit shared ECDH key to 768 bits (key, IC, hash = 3*256 bits)
@@ -210,30 +212,30 @@ impl<R:DBusResponder> DBusRequest<R>
 	               ciphertext_ch: (Sender<Vec<u8>>, Receiver<Vec<u8>>),
 	               private_key: &PrivateKey,
 	               is_server: bool,
-	               your_hash: &Vec<u8>,
+	               remote_public_key: &PublicKey,
 	               cert: &X509)
 		-> Result<RawFd,ConnectError>
 	{
 		info!("{}\tssl_connect()", is_server);
-		fn callback(_preverify_ok: bool, x509_ctx: &X509StoreContext, expected_hash: &Vec<u8>) -> bool{
+		let ptr = remote_public_key.to_evp_pkey().unwrap() as *mut c_void;
+		let expected_key = PKey::from_handle(ptr, Parts::Public);
+
+		fn callback(_preverify_ok: bool, x509_ctx: &X509StoreContext, expected_key: &PKey) -> bool{
 			info!("ssl x509 callback");
 
-			/*if (x509_ctx.get_error().is_some()) {
-				return false;
-			}*/
 
 			match x509_ctx.get_current_cert() {
 				None => false,
 				Some(cert) => {
-					// cert.get_public_key() -> *evp_pkey_st
-					match cert.fingerprint(hash::Type::SHA256) {
-						Some(actual_hash) => {
-							info!("cert fingerprints: {:?}\t{:?}", actual_hash, expected_hash);
-							//crypto::memcmp::eq(&actual_hash[..], &expected_hash[..]);
-							return true;
-						},
-						None => false,
+					let actual_key = cert.public_key();
+					
+					let is_cert_ok = if actual_key == *expected_key {true} else {false};
+					
+					if !is_cert_ok {
+						warn!("Expected different public key!");
 					}
+
+					is_cert_ok
 				}
 			}
 		};
@@ -256,7 +258,7 @@ impl<R:DBusResponder> DBusRequest<R>
 
 		let flags = ssl::SSL_VERIFY_PEER | ssl::SSL_VERIFY_FAIL_IF_NO_PEER_CERT;
 		let mut ctx = SslContext::new(SslMethod::Dtlsv1).unwrap();
-		ctx.set_verify_with_data(flags, callback, your_hash.clone());
+		ctx.set_verify_with_data(flags, callback, expected_key);
 
 		try!(ctx.set_certificate(cert).map_err(log_error));
 		try!(ctx.set_private_key(&pkey).map_err(log_error));
