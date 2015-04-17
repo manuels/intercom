@@ -16,6 +16,8 @@ use ice::IceAgent;
 use ecdh::public_key::PublicKey;
 use ecdh::private_key::PrivateKey;
 
+use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
+
 use openssl::crypto::hash;
 use openssl::crypto::pkey::{PKey,Parts};
 use openssl::crypto;
@@ -96,16 +98,7 @@ impl<R:DBusResponder> DBusRequest<R>
 				sleep_ms(500);
 			}
 		}
-/*
-		thread::spawn(move || {
-			// keep agent alive
-			// TODO: we can do this better!
-			loop {
-				sleep_ms(1000);
-			}
-			agent;
-		});
-*/
+
 		fd
 	}
 
@@ -123,8 +116,8 @@ impl<R:DBusResponder> DBusRequest<R>
 	{
 		let ttl = Duration::minutes(5);
 
-		let publish_local_credentials = |dht: &mut DHT, c| dht.put(&my_hash, &c, ttl);
-		let lookup_remote_credentials = |dht: &mut DHT| dht.get(&your_hash);
+		let publish_local_credentials = |dht: &mut DHT, c| dht.put(&my_hash, &c, ttl).map_err(|_| unimplemented!());
+		let lookup_remote_credentials = |dht: &mut DHT| dht.get(&your_hash).map_err(|_| ConnectError::RemoteCredentialsNotFound);
 		let p2p_connect = |agent: &mut IceAgent, c| {
 			let (my_tx, your_rx) = channel();
 			let (your_tx, my_rx) = channel();
@@ -133,19 +126,35 @@ impl<R:DBusResponder> DBusRequest<R>
 				.map(|_| (your_tx, your_rx))
 				.map_err(|_| ConnectError::IceConnectFailed)
 		};
-		/*let prepend_time = |mut c| {
-			let mut v = time::get_time().to_vec();
-			v.append(&mut c);
-			Ok(v)
-		};*/
+
+		let prepend_time = |c:Vec<_>| {
+			let now = time::now_utc().to_timespec();
+
+			let mut t = vec![];
+			t.write_i64::<LittleEndian>(now.sec).unwrap();
+
+			Ok(t+&c[..])
+		};
+
+		let select_most_recent = |mut v:Vec<Vec<u8>>| {
+			v.sort_by(|x,y| {
+				let mut x = Cursor::new(x.clone());
+				let mut y = Cursor::new(y.clone());
+				let x = x.read_i64::<LittleEndian>().unwrap();
+				let y = y.read_i64::<LittleEndian>().unwrap();
+				x.cmp(&y).reverse()
+			});
+			let credentials = v.get(0).unwrap().split_at(64/8);
+			Ok(credentials.1.to_vec())
+		};
 
 		Ok(agent.get_local_credentials())
-			//.and_then(|c| prepend_time(c))
+			.and_then(prepend_time)
 			.and_then(|c| DBusRequest::<R>::encrypt_then_mac(shared_key, &c))
-			.and_then(|c| publish_local_credentials(dht, c).map_err(|_| unimplemented!()))
-			.and_then(|_| lookup_remote_credentials(dht).map_err(|_| ConnectError::RemoteCredentialsNotFound))
+			.and_then(|c| publish_local_credentials(dht, c))
+			.and_then(|_| lookup_remote_credentials(dht))
 			.and_then(|l| DBusRequest::<R>::decrypt(shared_key, &l))
-			//.and_then(select_most_recent)
+			.and_then(select_most_recent)
 			.and_then(|c| {debug!("DBusRequest: remote creds='{}'", ::std::str::from_utf8(&c).unwrap()); Ok(c)})
 			.and_then(|c| p2p_connect(agent, c))
 			.and_then(|ch| self.ssl_connect(ch, &local_private_key, is_server, &remote_public_key, &cert))
@@ -187,21 +196,28 @@ impl<R:DBusResponder> DBusRequest<R>
 
 	fn decrypt(shared_key:  &Vec<u8>,
 	           ciphertexts: &Vec<Vec<u8>>)
-		-> Result<Vec<u8>,ConnectError>
+		-> Result<Vec<Vec<u8>>,ConnectError>
 	{
-		debug!("ciphertext: {:?}", ciphertexts.get(0).map(|v| &v[..]));
-		let ctxt = try!(ciphertexts.get(0).ok_or(ConnectError::RemoteCredentialsNotFound));
+		debug!("ciphertexts: len={:?}", ciphertexts.len());
 
 		let (key, iv, hash) = DBusRequest::<R>::split_secret_key(shared_key);
 
-		let (actual_hmac, ctxt) = ctxt.split_at(HMAC_HASH.md_len());
-		let expected_hmac = hmac::hmac(HMAC_HASH, &hash[..], &ctxt[..]);
+		let res: Vec<_> = ciphertexts.iter().filter_map(|ctxt| {
+			let (actual_hmac, ctxt) = ctxt.split_at(HMAC_HASH.md_len());
+			let expected_hmac = hmac::hmac(HMAC_HASH, &hash[..], &ctxt[..]);
 
-		let plaintext = crypto::symm::decrypt(CRYPTO, &key[..], iv.to_vec(), &ctxt[..]);
+			let plaintext = crypto::symm::decrypt(CRYPTO, &key[..], iv.to_vec(), &ctxt[..]);
 
-		assert_eq!(actual_hmac.len(), expected_hmac.len());
-		if crypto::memcmp::eq(&actual_hmac, &expected_hmac) {
-			Ok(plaintext)
+			assert_eq!(actual_hmac.len(), expected_hmac.len());
+			if crypto::memcmp::eq(&actual_hmac, &expected_hmac) {
+				Some(plaintext)
+			} else {
+				None
+			}
+		}).collect();
+
+		if res.len() > 0 {
+			Ok(res)
 		} else {
 			Err(ConnectError::RemoteCredentialsNotFound)
 		}
