@@ -9,7 +9,6 @@ use std::thread::sleep_ms;
 use std::io::Cursor;
 use std::sync::mpsc::channel;
 use std::sync::mpsc::{Sender,Receiver};
-use std::thread;
 
 use fake_dht::FakeDHT;
 use ice::IceAgent;
@@ -75,8 +74,6 @@ impl<R:DBusResponder> DBusRequest<R>
 	              dht:               &mut DHT)
 		-> Result<RawFd,ConnectError>
 	{
-		// TODO: async get and set credentials
-
 		let controlling_mode = if my_hash > your_hash {true} else {false};
 		let mut agent = try!(IceAgent::new(controlling_mode).map_err(|_|ConnectError::FOO));
 
@@ -114,6 +111,8 @@ impl<R:DBusResponder> DBusRequest<R>
 	                        dht:               &mut DHT)
 		-> Result<RawFd,ConnectError>
 	{
+		// TODO: async get and set credentials
+
 		let ttl = Duration::minutes(5);
 
 		let publish_local_credentials = |dht: &mut DHT, c| dht.put(&my_hash, &c, ttl).map_err(|_| unimplemented!());
@@ -127,13 +126,13 @@ impl<R:DBusResponder> DBusRequest<R>
 				.map_err(|_| ConnectError::IceConnectFailed)
 		};
 
-		let prepend_time = |c:Vec<_>| {
+		let prepend_time = |cred:Vec<_>| {
 			let now = time::now_utc().to_timespec();
 
-			let mut t = vec![];
-			t.write_i64::<LittleEndian>(now.sec).unwrap();
+			let mut unix_time = vec![];
+			unix_time.write_i64::<LittleEndian>(now.sec).unwrap();
 
-			Ok(t+&c[..])
+			Ok(unix_time + &cred[..])
 		};
 
 		let select_most_recent = |mut v:Vec<Vec<u8>>| {
@@ -198,7 +197,7 @@ impl<R:DBusResponder> DBusRequest<R>
 	           ciphertexts: &Vec<Vec<u8>>)
 		-> Result<Vec<Vec<u8>>, ConnectError>
 	{
-		debug!("ciphertexts: len={:?}", ciphertexts.len());
+		debug!("Found {} entries in DHT.", ciphertexts.len());
 
 		let (key, iv, hash) = DBusRequest::<R>::split_secret_key(shared_key);
 
@@ -212,14 +211,16 @@ impl<R:DBusResponder> DBusRequest<R>
 			if crypto::memcmp::eq(&actual_hmac, &expected_hmac) {
 				Some(plaintext)
 			} else {
-				debug!("Found a DHT entry with incorrect HMAC.");
+				debug!("Found a DHT entry with invalid HMAC.");
 				None
 			}
 		}).collect();
 
 		if res.len() > 0 {
+			info!("Found {} valid remote credential(s) in DHT.", res.len());
 			Ok(res)
 		} else {
+			warn!("No valid remote credentials found in DHT!");
 			Err(ConnectError::RemoteCredentialsNotFound)
 		}
 	}

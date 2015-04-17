@@ -17,6 +17,7 @@ pub struct IceAgent {
 }
 
 unsafe impl Send for IceAgent {}
+unsafe impl Sync for IceAgent {}
 
 impl IceAgent {
 	pub fn new(controlling_mode: bool) -> Result<IceAgent,()>
