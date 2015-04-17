@@ -11,7 +11,6 @@ use std::sync::mpsc::channel;
 use std::sync::mpsc::{Sender,Receiver};
 use std::thread;
 
-//use ::dgram_unix_socket::DgramUnixSocket;
 use fake_dht::FakeDHT;
 use ice::IceAgent;
 use ecdh::public_key::PublicKey;
@@ -97,7 +96,7 @@ impl<R:DBusResponder> DBusRequest<R>
 				sleep_ms(500);
 			}
 		}
-
+/*
 		thread::spawn(move || {
 			// keep agent alive
 			// TODO: we can do this better!
@@ -106,7 +105,7 @@ impl<R:DBusResponder> DBusRequest<R>
 			}
 			agent;
 		});
-
+*/
 		fd
 	}
 
@@ -223,19 +222,17 @@ impl<R:DBusResponder> DBusRequest<R>
 		fn callback(_preverify_ok: bool, x509_ctx: &X509StoreContext, expected_key: &PKey) -> bool{
 			info!("ssl x509 callback");
 
-
 			match x509_ctx.get_current_cert() {
 				None => false,
 				Some(cert) => {
 					let actual_key = cert.public_key();
 					
-					let is_cert_ok = if actual_key == *expected_key {true} else {false};
-					
-					if !is_cert_ok {
+					if actual_key == *expected_key {
+						true
+					} else {
 						warn!("Expected different public key!");
+						false
 					}
-
-					is_cert_ok
 				}
 			}
 		};
