@@ -212,6 +212,7 @@ impl<R:DBusResponder> DBusRequest<R>
 			if crypto::memcmp::eq(&actual_hmac, &expected_hmac) {
 				Some(plaintext)
 			} else {
+				debug!("Found a DHT entry with incorrect HMAC.");
 				None
 			}
 		}).collect();
@@ -253,7 +254,7 @@ impl<R:DBusResponder> DBusRequest<R>
 			}
 		};
 
-		let mut buf = Cursor::new(vec![0u8; 4*1024]);
+		let mut buf = Cursor::new(vec![]);
 		private_key.to_pem(&mut buf).unwrap();
 		buf.set_position(0);
 		let pkey = try!(PKey::private_key_from_pem(&mut buf).map_err(|_| ConnectError::FOO));
