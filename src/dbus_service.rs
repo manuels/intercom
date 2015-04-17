@@ -191,6 +191,8 @@ impl DBusResponder for GInvocation {
 				("org.manuel.Ganymed.credentials_not_found", ""),
 			ConnectError::IceConnectFailed => 
 				("org.manuel.Ganymed.nice_connect_failed", ""),
+			ConnectError::SslError(e) => 
+				("org.manuel.Ganymed.ssl_error", ""),
 			ConnectError::FOO =>
 				("org.manuel.Ganymed.not_implemented", ""),
 		};

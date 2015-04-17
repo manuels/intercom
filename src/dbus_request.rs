@@ -196,7 +196,7 @@ impl<R:DBusResponder> DBusRequest<R>
 
 	fn decrypt(shared_key:  &Vec<u8>,
 	           ciphertexts: &Vec<Vec<u8>>)
-		-> Result<Vec<Vec<u8>>,ConnectError>
+		-> Result<Vec<Vec<u8>>, ConnectError>
 	{
 		debug!("ciphertexts: len={:?}", ciphertexts.len());
 
@@ -260,7 +260,7 @@ impl<R:DBusResponder> DBusRequest<R>
 
 		fn log_error(e: SslError) -> ConnectError {
 			warn!("{:?}", e);
-			ConnectError::FOO
+			ConnectError::SslError(e)
 		};
 
 		let cipher = concat!(

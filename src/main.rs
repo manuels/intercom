@@ -44,6 +44,7 @@ mod ssl;
 pub enum ConnectError {
 	RemoteCredentialsNotFound,
 	IceConnectFailed,
+	SslError(openssl::ssl::error::SslError),
 	FOO,
 }
 
