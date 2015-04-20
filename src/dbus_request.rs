@@ -80,7 +80,7 @@ impl<R:DBusResponder> DBusRequest<R>
 		let mut fd = Err(ConnectError::RemoteCredentialsNotFound);
 		let start = PreciseTime::now();
 
-		while fd.is_err() && start.to(PreciseTime::now()) < self.timeout {
+		while start.to(PreciseTime::now()) < self.timeout {
 			fd = self.establish_connection(&local_private_key,
 			                               &remote_public_key,
 			                               &shared_key,
@@ -91,8 +91,11 @@ impl<R:DBusResponder> DBusRequest<R>
 			                               &mut agent,
 			                               dht);
 			info!("{}\tloop: fd={:?}", controlling_mode, fd.is_ok());
-			if fd.is_err() {
-				sleep_ms(500);
+
+			match fd {
+				Ok(_) => { break },
+				Err(ConnectError::SslError(_)) => { break },
+				Err(_) => sleep_ms(500)
 			}
 		}
 
@@ -265,7 +268,7 @@ impl<R:DBusResponder> DBusRequest<R>
 			ConnectError::SslError(e)
 		};
 
-		let cipher = concat!(
+		let cipher = concat!( /* TODO: GCM! */
 			"ECDHE-ECDSA-AES128-SHA256,",// won't work with DTLSv1 (but probably with v1.2)
 			"ECDHE-ECDSA-AES128-SHA256,",// won't work with DTLSv1 (but probably with v1.2)
 			"ECDHE-ECDSA-AES128-SHA,",   // won't work with DTLSv1 (but probably with v1.2)
@@ -362,7 +365,7 @@ mod tests {
 		let barrier1 = Arc::new(Barrier::new(2));
 		let barrier2 = barrier1.clone();
 
-		let thread = thread::scoped(move || {
+		let thread = thread::spawn(move || {
 			let req1 = DBusRequest::new(resp1, bob_public_key.clone(), port, timeout);
 
 			let key = PrivateKey::from_vec(&alice_private_key).unwrap();
@@ -388,7 +391,7 @@ mod tests {
 			let mut len;
 			loop {
 				len = unsafe {
-					let mut buf = [0; 8*1024];
+					let mut buf = [0; 16*1024];
 					debug!("1: test recv()...");
 					recv(fd, buf.as_mut_ptr() as *mut c_void, buf.len() as u64, 0)
 				};
@@ -425,7 +428,7 @@ mod tests {
 		let mut len;
 		loop {
 			len = unsafe {
-				let mut buf = [0; 8*1024];
+				let mut buf = [0; 16*1024];
 				debug!("2: test recv()...");
 				recv(fd, buf.as_mut_ptr() as *mut c_void, buf.len() as u64, 0)
 			};
@@ -439,6 +442,6 @@ mod tests {
 		barrier2.wait();
 		
 		drop(req2);
-		drop(thread);
+		thread.join().unwrap();
 	}
 }

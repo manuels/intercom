@@ -5,6 +5,7 @@
 	<method name="connect">
 		<annotation name="org.gtk.GDBus.C.UnixFD" value="true"/>
 
+		<arg type="i" name="socket_type" direction="in" />
 		<arg type="ay" name="remote_public_key" direction="in" />
 		<arg type="u" name="port" direction="in" />
 		<arg type="u" name="timeout" direction="in" />
