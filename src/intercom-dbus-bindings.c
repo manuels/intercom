@@ -8,7 +8,7 @@
 #  include "config.h"
 #endif
 
-#include "ganymed-bindings.h"
+#include "intercom-dbus-bindings.h"
 
 #include <string.h>
 #ifdef G_OS_UNIX
@@ -149,21 +149,32 @@ _g_value_equal (const GValue *a, const GValue *b)
 }
 
 /* ------------------------------------------------------------------------
- * Code for interface org.manuel.Ganymed
+ * Code for interface org.manuel.Intercom
  * ------------------------------------------------------------------------
  */
 
 /**
- * SECTION:Ganymed
- * @title: Ganymed
- * @short_description: Generated C code for the org.manuel.Ganymed D-Bus interface
+ * SECTION:Intercom
+ * @title: Intercom
+ * @short_description: Generated C code for the org.manuel.Intercom D-Bus interface
  *
- * This section contains code for working with the <link linkend="gdbus-interface-org-manuel-Ganymed.top_of_page">org.manuel.Ganymed</link> D-Bus interface in C.
+ * This section contains code for working with the <link linkend="gdbus-interface-org-manuel-Intercom.top_of_page">org.manuel.Intercom</link> D-Bus interface in C.
  */
 
-/* ---- Introspection data for org.manuel.Ganymed ---- */
+/* ---- Introspection data for org.manuel.Intercom ---- */
 
-static const _ExtendedGDBusArgInfo _ganymed_method_info_connect_IN_ARG_remote_public_key =
+static const _ExtendedGDBusArgInfo _intercom_method_info_connect_IN_ARG_socket_type =
+{
+  {
+    -1,
+    "socket_type",
+    "i",
+    NULL
+  },
+  FALSE
+};
+
+static const _ExtendedGDBusArgInfo _intercom_method_info_connect_IN_ARG_remote_public_key =
 {
   {
     -1,
@@ -174,7 +185,7 @@ static const _ExtendedGDBusArgInfo _ganymed_method_info_connect_IN_ARG_remote_pu
   TRUE
 };
 
-static const _ExtendedGDBusArgInfo _ganymed_method_info_connect_IN_ARG_port =
+static const _ExtendedGDBusArgInfo _intercom_method_info_connect_IN_ARG_port =
 {
   {
     -1,
@@ -185,7 +196,7 @@ static const _ExtendedGDBusArgInfo _ganymed_method_info_connect_IN_ARG_port =
   FALSE
 };
 
-static const _ExtendedGDBusArgInfo _ganymed_method_info_connect_IN_ARG_timeout =
+static const _ExtendedGDBusArgInfo _intercom_method_info_connect_IN_ARG_timeout =
 {
   {
     -1,
@@ -196,15 +207,16 @@ static const _ExtendedGDBusArgInfo _ganymed_method_info_connect_IN_ARG_timeout =
   FALSE
 };
 
-static const _ExtendedGDBusArgInfo * const _ganymed_method_info_connect_IN_ARG_pointers[] =
+static const _ExtendedGDBusArgInfo * const _intercom_method_info_connect_IN_ARG_pointers[] =
 {
-  &_ganymed_method_info_connect_IN_ARG_remote_public_key,
-  &_ganymed_method_info_connect_IN_ARG_port,
-  &_ganymed_method_info_connect_IN_ARG_timeout,
+  &_intercom_method_info_connect_IN_ARG_socket_type,
+  &_intercom_method_info_connect_IN_ARG_remote_public_key,
+  &_intercom_method_info_connect_IN_ARG_port,
+  &_intercom_method_info_connect_IN_ARG_timeout,
   NULL
 };
 
-static const _ExtendedGDBusArgInfo _ganymed_method_info_connect_OUT_ARG_fd =
+static const _ExtendedGDBusArgInfo _intercom_method_info_connect_OUT_ARG_fd =
 {
   {
     -1,
@@ -215,26 +227,26 @@ static const _ExtendedGDBusArgInfo _ganymed_method_info_connect_OUT_ARG_fd =
   FALSE
 };
 
-static const _ExtendedGDBusArgInfo * const _ganymed_method_info_connect_OUT_ARG_pointers[] =
+static const _ExtendedGDBusArgInfo * const _intercom_method_info_connect_OUT_ARG_pointers[] =
 {
-  &_ganymed_method_info_connect_OUT_ARG_fd,
+  &_intercom_method_info_connect_OUT_ARG_fd,
   NULL
 };
 
-static const _ExtendedGDBusMethodInfo _ganymed_method_info_connect =
+static const _ExtendedGDBusMethodInfo _intercom_method_info_connect =
 {
   {
     -1,
     "connect",
-    (GDBusArgInfo **) &_ganymed_method_info_connect_IN_ARG_pointers,
-    (GDBusArgInfo **) &_ganymed_method_info_connect_OUT_ARG_pointers,
+    (GDBusArgInfo **) &_intercom_method_info_connect_IN_ARG_pointers,
+    (GDBusArgInfo **) &_intercom_method_info_connect_OUT_ARG_pointers,
     NULL
   },
   "handle-connect",
   TRUE
 };
 
-static const _ExtendedGDBusArgInfo _ganymed_method_info_add_node_IN_ARG_node_name =
+static const _ExtendedGDBusArgInfo _intercom_method_info_add_node_IN_ARG_node_name =
 {
   {
     -1,
@@ -245,7 +257,7 @@ static const _ExtendedGDBusArgInfo _ganymed_method_info_add_node_IN_ARG_node_nam
   FALSE
 };
 
-static const _ExtendedGDBusArgInfo _ganymed_method_info_add_node_IN_ARG_remote_public_key =
+static const _ExtendedGDBusArgInfo _intercom_method_info_add_node_IN_ARG_remote_public_key =
 {
   {
     -1,
@@ -256,19 +268,19 @@ static const _ExtendedGDBusArgInfo _ganymed_method_info_add_node_IN_ARG_remote_p
   FALSE
 };
 
-static const _ExtendedGDBusArgInfo * const _ganymed_method_info_add_node_IN_ARG_pointers[] =
+static const _ExtendedGDBusArgInfo * const _intercom_method_info_add_node_IN_ARG_pointers[] =
 {
-  &_ganymed_method_info_add_node_IN_ARG_node_name,
-  &_ganymed_method_info_add_node_IN_ARG_remote_public_key,
+  &_intercom_method_info_add_node_IN_ARG_node_name,
+  &_intercom_method_info_add_node_IN_ARG_remote_public_key,
   NULL
 };
 
-static const _ExtendedGDBusMethodInfo _ganymed_method_info_add_node =
+static const _ExtendedGDBusMethodInfo _intercom_method_info_add_node =
 {
   {
     -1,
     "add_node",
-    (GDBusArgInfo **) &_ganymed_method_info_add_node_IN_ARG_pointers,
+    (GDBusArgInfo **) &_intercom_method_info_add_node_IN_ARG_pointers,
     NULL,
     NULL
   },
@@ -276,7 +288,7 @@ static const _ExtendedGDBusMethodInfo _ganymed_method_info_add_node =
   FALSE
 };
 
-static const _ExtendedGDBusArgInfo _ganymed_method_info_find_node_IN_ARG_keywords =
+static const _ExtendedGDBusArgInfo _intercom_method_info_find_node_IN_ARG_keywords =
 {
   {
     -1,
@@ -287,13 +299,13 @@ static const _ExtendedGDBusArgInfo _ganymed_method_info_find_node_IN_ARG_keyword
   FALSE
 };
 
-static const _ExtendedGDBusArgInfo * const _ganymed_method_info_find_node_IN_ARG_pointers[] =
+static const _ExtendedGDBusArgInfo * const _intercom_method_info_find_node_IN_ARG_pointers[] =
 {
-  &_ganymed_method_info_find_node_IN_ARG_keywords,
+  &_intercom_method_info_find_node_IN_ARG_keywords,
   NULL
 };
 
-static const _ExtendedGDBusArgInfo _ganymed_method_info_find_node_OUT_ARG_nodes =
+static const _ExtendedGDBusArgInfo _intercom_method_info_find_node_OUT_ARG_nodes =
 {
   {
     -1,
@@ -304,72 +316,72 @@ static const _ExtendedGDBusArgInfo _ganymed_method_info_find_node_OUT_ARG_nodes 
   TRUE
 };
 
-static const _ExtendedGDBusArgInfo * const _ganymed_method_info_find_node_OUT_ARG_pointers[] =
+static const _ExtendedGDBusArgInfo * const _intercom_method_info_find_node_OUT_ARG_pointers[] =
 {
-  &_ganymed_method_info_find_node_OUT_ARG_nodes,
+  &_intercom_method_info_find_node_OUT_ARG_nodes,
   NULL
 };
 
-static const _ExtendedGDBusMethodInfo _ganymed_method_info_find_node =
+static const _ExtendedGDBusMethodInfo _intercom_method_info_find_node =
 {
   {
     -1,
     "find_node",
-    (GDBusArgInfo **) &_ganymed_method_info_find_node_IN_ARG_pointers,
-    (GDBusArgInfo **) &_ganymed_method_info_find_node_OUT_ARG_pointers,
+    (GDBusArgInfo **) &_intercom_method_info_find_node_IN_ARG_pointers,
+    (GDBusArgInfo **) &_intercom_method_info_find_node_OUT_ARG_pointers,
     NULL
   },
   "handle-find-node",
   FALSE
 };
 
-static const _ExtendedGDBusMethodInfo * const _ganymed_method_info_pointers[] =
+static const _ExtendedGDBusMethodInfo * const _intercom_method_info_pointers[] =
 {
-  &_ganymed_method_info_connect,
-  &_ganymed_method_info_add_node,
-  &_ganymed_method_info_find_node,
+  &_intercom_method_info_connect,
+  &_intercom_method_info_add_node,
+  &_intercom_method_info_find_node,
   NULL
 };
 
-static const _ExtendedGDBusInterfaceInfo _ganymed_interface_info =
+static const _ExtendedGDBusInterfaceInfo _intercom_interface_info =
 {
   {
     -1,
-    "org.manuel.Ganymed",
-    (GDBusMethodInfo **) &_ganymed_method_info_pointers,
+    "org.manuel.Intercom",
+    (GDBusMethodInfo **) &_intercom_method_info_pointers,
     NULL,
     NULL,
     NULL
   },
-  "ganymed",
+  "intercom",
 };
 
 
 /**
- * ganymed_interface_info:
+ * intercom_interface_info:
  *
- * Gets a machine-readable description of the <link linkend="gdbus-interface-org-manuel-Ganymed.top_of_page">org.manuel.Ganymed</link> D-Bus interface.
+ * Gets a machine-readable description of the <link linkend="gdbus-interface-org-manuel-Intercom.top_of_page">org.manuel.Intercom</link> D-Bus interface.
  *
  * Returns: (transfer none): A #GDBusInterfaceInfo. Do not free.
  */
 GDBusInterfaceInfo *
-ganymed_interface_info (void)
+intercom_interface_info (void)
 {
-  return (GDBusInterfaceInfo *) &_ganymed_interface_info;
+  return (GDBusInterfaceInfo *) &_intercom_interface_info;
 }
 
 /**
- * ganymed_override_properties:
+ * intercom_override_properties:
  * @klass: The class structure for a #GObject<!-- -->-derived class.
  * @property_id_begin: The property id to assign to the first overridden property.
  *
- * Overrides all #GObject properties in the #Ganymed interface for a concrete class.
+ * Overrides all #GObject properties in the #Intercom interface for a concrete class.
  * The properties are overridden in the order they are defined.
  *
  * Returns: The last property id.
  */
 guint
-ganymed_override_properties (GObjectClass *klass, guint property_id_begin)
+intercom_override_properties (GObjectClass *klass, guint property_id_begin)
 {
   return property_id_begin - 1;
 }
@@ -377,68 +389,69 @@ ganymed_override_properties (GObjectClass *klass, guint property_id_begin)
 
 
 /**
- * Ganymed:
+ * Intercom:
  *
- * Abstract interface type for the D-Bus interface <link linkend="gdbus-interface-org-manuel-Ganymed.top_of_page">org.manuel.Ganymed</link>.
+ * Abstract interface type for the D-Bus interface <link linkend="gdbus-interface-org-manuel-Intercom.top_of_page">org.manuel.Intercom</link>.
  */
 
 /**
- * GanymedIface:
+ * IntercomIface:
  * @parent_iface: The parent interface.
- * @handle_add_node: Handler for the #Ganymed::handle-add-node signal.
- * @handle_connect: Handler for the #Ganymed::handle-connect signal.
- * @handle_find_node: Handler for the #Ganymed::handle-find-node signal.
+ * @handle_add_node: Handler for the #Intercom::handle-add-node signal.
+ * @handle_connect: Handler for the #Intercom::handle-connect signal.
+ * @handle_find_node: Handler for the #Intercom::handle-find-node signal.
  *
- * Virtual table for the D-Bus interface <link linkend="gdbus-interface-org-manuel-Ganymed.top_of_page">org.manuel.Ganymed</link>.
+ * Virtual table for the D-Bus interface <link linkend="gdbus-interface-org-manuel-Intercom.top_of_page">org.manuel.Intercom</link>.
  */
 
 static void
-ganymed_default_init (GanymedIface *iface)
+intercom_default_init (IntercomIface *iface)
 {
   /* GObject signals for incoming D-Bus method calls: */
   /**
-   * Ganymed::handle-connect:
-   * @object: A #Ganymed.
+   * Intercom::handle-connect:
+   * @object: A #Intercom.
    * @invocation: A #GDBusMethodInvocation.
    * @fd_list: (allow-none): A #GUnixFDList or %NULL.
+   * @arg_socket_type: Argument passed by remote caller.
    * @arg_remote_public_key: Argument passed by remote caller.
    * @arg_port: Argument passed by remote caller.
    * @arg_timeout: Argument passed by remote caller.
    *
-   * Signal emitted when a remote caller is invoking the <link linkend="gdbus-method-org-manuel-Ganymed.connect">connect()</link> D-Bus method.
+   * Signal emitted when a remote caller is invoking the <link linkend="gdbus-method-org-manuel-Intercom.connect">connect()</link> D-Bus method.
    *
-   * If a signal handler returns %TRUE, it means the signal handler will handle the invocation (e.g. take a reference to @invocation and eventually call ganymed_complete_connect() or e.g. g_dbus_method_invocation_return_error() on it) and no order signal handlers will run. If no signal handler handles the invocation, the %G_DBUS_ERROR_UNKNOWN_METHOD error is returned.
+   * If a signal handler returns %TRUE, it means the signal handler will handle the invocation (e.g. take a reference to @invocation and eventually call intercom_complete_connect() or e.g. g_dbus_method_invocation_return_error() on it) and no order signal handlers will run. If no signal handler handles the invocation, the %G_DBUS_ERROR_UNKNOWN_METHOD error is returned.
    *
    * Returns: %TRUE if the invocation was handled, %FALSE to let other signal handlers run.
    */
   g_signal_new ("handle-connect",
     G_TYPE_FROM_INTERFACE (iface),
     G_SIGNAL_RUN_LAST,
-    G_STRUCT_OFFSET (GanymedIface, handle_connect),
+    G_STRUCT_OFFSET (IntercomIface, handle_connect),
     g_signal_accumulator_true_handled,
     NULL,
     g_cclosure_marshal_generic,
     G_TYPE_BOOLEAN,
-    5,
-    G_TYPE_DBUS_METHOD_INVOCATION, G_TYPE_UNIX_FD_LIST, G_TYPE_VARIANT, G_TYPE_UINT, G_TYPE_UINT);
+    6,
+    G_TYPE_DBUS_METHOD_INVOCATION, G_TYPE_UNIX_FD_LIST, G_TYPE_INT, G_TYPE_VARIANT, G_TYPE_UINT, G_TYPE_UINT);
 
   /**
-   * Ganymed::handle-add-node:
-   * @object: A #Ganymed.
+   * Intercom::handle-add-node:
+   * @object: A #Intercom.
    * @invocation: A #GDBusMethodInvocation.
    * @arg_node_name: Argument passed by remote caller.
    * @arg_remote_public_key: Argument passed by remote caller.
    *
-   * Signal emitted when a remote caller is invoking the <link linkend="gdbus-method-org-manuel-Ganymed.add_node">add_node()</link> D-Bus method.
+   * Signal emitted when a remote caller is invoking the <link linkend="gdbus-method-org-manuel-Intercom.add_node">add_node()</link> D-Bus method.
    *
-   * If a signal handler returns %TRUE, it means the signal handler will handle the invocation (e.g. take a reference to @invocation and eventually call ganymed_complete_add_node() or e.g. g_dbus_method_invocation_return_error() on it) and no order signal handlers will run. If no signal handler handles the invocation, the %G_DBUS_ERROR_UNKNOWN_METHOD error is returned.
+   * If a signal handler returns %TRUE, it means the signal handler will handle the invocation (e.g. take a reference to @invocation and eventually call intercom_complete_add_node() or e.g. g_dbus_method_invocation_return_error() on it) and no order signal handlers will run. If no signal handler handles the invocation, the %G_DBUS_ERROR_UNKNOWN_METHOD error is returned.
    *
    * Returns: %TRUE if the invocation was handled, %FALSE to let other signal handlers run.
    */
   g_signal_new ("handle-add-node",
     G_TYPE_FROM_INTERFACE (iface),
     G_SIGNAL_RUN_LAST,
-    G_STRUCT_OFFSET (GanymedIface, handle_add_node),
+    G_STRUCT_OFFSET (IntercomIface, handle_add_node),
     g_signal_accumulator_true_handled,
     NULL,
     g_cclosure_marshal_generic,
@@ -447,21 +460,21 @@ ganymed_default_init (GanymedIface *iface)
     G_TYPE_DBUS_METHOD_INVOCATION, G_TYPE_STRV, G_TYPE_STRING);
 
   /**
-   * Ganymed::handle-find-node:
-   * @object: A #Ganymed.
+   * Intercom::handle-find-node:
+   * @object: A #Intercom.
    * @invocation: A #GDBusMethodInvocation.
    * @arg_keywords: Argument passed by remote caller.
    *
-   * Signal emitted when a remote caller is invoking the <link linkend="gdbus-method-org-manuel-Ganymed.find_node">find_node()</link> D-Bus method.
+   * Signal emitted when a remote caller is invoking the <link linkend="gdbus-method-org-manuel-Intercom.find_node">find_node()</link> D-Bus method.
    *
-   * If a signal handler returns %TRUE, it means the signal handler will handle the invocation (e.g. take a reference to @invocation and eventually call ganymed_complete_find_node() or e.g. g_dbus_method_invocation_return_error() on it) and no order signal handlers will run. If no signal handler handles the invocation, the %G_DBUS_ERROR_UNKNOWN_METHOD error is returned.
+   * If a signal handler returns %TRUE, it means the signal handler will handle the invocation (e.g. take a reference to @invocation and eventually call intercom_complete_find_node() or e.g. g_dbus_method_invocation_return_error() on it) and no order signal handlers will run. If no signal handler handles the invocation, the %G_DBUS_ERROR_UNKNOWN_METHOD error is returned.
    *
    * Returns: %TRUE if the invocation was handled, %FALSE to let other signal handlers run.
    */
   g_signal_new ("handle-find-node",
     G_TYPE_FROM_INTERFACE (iface),
     G_SIGNAL_RUN_LAST,
-    G_STRUCT_OFFSET (GanymedIface, handle_find_node),
+    G_STRUCT_OFFSET (IntercomIface, handle_find_node),
     g_signal_accumulator_true_handled,
     NULL,
     g_cclosure_marshal_generic,
@@ -471,12 +484,13 @@ ganymed_default_init (GanymedIface *iface)
 
 }
 
-typedef GanymedIface GanymedInterface;
-G_DEFINE_INTERFACE (Ganymed, ganymed, G_TYPE_OBJECT);
+typedef IntercomIface IntercomInterface;
+G_DEFINE_INTERFACE (Intercom, intercom, G_TYPE_OBJECT);
 
 /**
- * ganymed_call_connect:
- * @proxy: A #GanymedProxy.
+ * intercom_call_connect:
+ * @proxy: A #IntercomProxy.
+ * @arg_socket_type: Argument to pass with the method invocation.
  * @arg_remote_public_key: Argument to pass with the method invocation.
  * @arg_port: Argument to pass with the method invocation.
  * @arg_timeout: Argument to pass with the method invocation.
@@ -485,15 +499,16 @@ G_DEFINE_INTERFACE (Ganymed, ganymed, G_TYPE_OBJECT);
  * @callback: A #GAsyncReadyCallback to call when the request is satisfied or %NULL.
  * @user_data: User data to pass to @callback.
  *
- * Asynchronously invokes the <link linkend="gdbus-method-org-manuel-Ganymed.connect">connect()</link> D-Bus method on @proxy.
+ * Asynchronously invokes the <link linkend="gdbus-method-org-manuel-Intercom.connect">connect()</link> D-Bus method on @proxy.
  * When the operation is finished, @callback will be invoked in the <link linkend="g-main-context-push-thread-default">thread-default main loop</link> of the thread you are calling this method from.
- * You can then call ganymed_call_connect_finish() to get the result of the operation.
+ * You can then call intercom_call_connect_finish() to get the result of the operation.
  *
- * See ganymed_call_connect_sync() for the synchronous, blocking version of this method.
+ * See intercom_call_connect_sync() for the synchronous, blocking version of this method.
  */
 void
-ganymed_call_connect (
-    Ganymed *proxy,
+intercom_call_connect (
+    Intercom *proxy,
+    gint arg_socket_type,
     GVariant *arg_remote_public_key,
     guint arg_port,
     guint arg_timeout,
@@ -504,7 +519,8 @@ ganymed_call_connect (
 {
   g_dbus_proxy_call_with_unix_fd_list (G_DBUS_PROXY (proxy),
     "connect",
-    g_variant_new ("(@ayuu)",
+    g_variant_new ("(i@ayuu)",
+                   arg_socket_type,
                    arg_remote_public_key,
                    arg_port,
                    arg_timeout),
@@ -517,20 +533,20 @@ ganymed_call_connect (
 }
 
 /**
- * ganymed_call_connect_finish:
- * @proxy: A #GanymedProxy.
+ * intercom_call_connect_finish:
+ * @proxy: A #IntercomProxy.
  * @out_fd: (out): Return location for return parameter or %NULL to ignore.
  * @out_fd_list: (out): Return location for a #GUnixFDList or %NULL.
- * @res: The #GAsyncResult obtained from the #GAsyncReadyCallback passed to ganymed_call_connect().
+ * @res: The #GAsyncResult obtained from the #GAsyncReadyCallback passed to intercom_call_connect().
  * @error: Return location for error or %NULL.
  *
- * Finishes an operation started with ganymed_call_connect().
+ * Finishes an operation started with intercom_call_connect().
  *
  * Returns: (skip): %TRUE if the call succeded, %FALSE if @error is set.
  */
 gboolean
-ganymed_call_connect_finish (
-    Ganymed *proxy,
+intercom_call_connect_finish (
+    Intercom *proxy,
     GVariant **out_fd,
     GUnixFDList **out_fd_list,
     GAsyncResult *res,
@@ -549,8 +565,9 @@ _out:
 }
 
 /**
- * ganymed_call_connect_sync:
- * @proxy: A #GanymedProxy.
+ * intercom_call_connect_sync:
+ * @proxy: A #IntercomProxy.
+ * @arg_socket_type: Argument to pass with the method invocation.
  * @arg_remote_public_key: Argument to pass with the method invocation.
  * @arg_port: Argument to pass with the method invocation.
  * @arg_timeout: Argument to pass with the method invocation.
@@ -560,15 +577,16 @@ _out:
  * @cancellable: (allow-none): A #GCancellable or %NULL.
  * @error: Return location for error or %NULL.
  *
- * Synchronously invokes the <link linkend="gdbus-method-org-manuel-Ganymed.connect">connect()</link> D-Bus method on @proxy. The calling thread is blocked until a reply is received.
+ * Synchronously invokes the <link linkend="gdbus-method-org-manuel-Intercom.connect">connect()</link> D-Bus method on @proxy. The calling thread is blocked until a reply is received.
  *
- * See ganymed_call_connect() for the asynchronous version of this method.
+ * See intercom_call_connect() for the asynchronous version of this method.
  *
  * Returns: (skip): %TRUE if the call succeded, %FALSE if @error is set.
  */
 gboolean
-ganymed_call_connect_sync (
-    Ganymed *proxy,
+intercom_call_connect_sync (
+    Intercom *proxy,
+    gint arg_socket_type,
     GVariant *arg_remote_public_key,
     guint arg_port,
     guint arg_timeout,
@@ -581,7 +599,8 @@ ganymed_call_connect_sync (
   GVariant *_ret;
   _ret = g_dbus_proxy_call_with_unix_fd_list_sync (G_DBUS_PROXY (proxy),
     "connect",
-    g_variant_new ("(@ayuu)",
+    g_variant_new ("(i@ayuu)",
+                   arg_socket_type,
                    arg_remote_public_key,
                    arg_port,
                    arg_timeout),
@@ -602,23 +621,23 @@ _out:
 }
 
 /**
- * ganymed_call_add_node:
- * @proxy: A #GanymedProxy.
+ * intercom_call_add_node:
+ * @proxy: A #IntercomProxy.
  * @arg_node_name: Argument to pass with the method invocation.
  * @arg_remote_public_key: Argument to pass with the method invocation.
  * @cancellable: (allow-none): A #GCancellable or %NULL.
  * @callback: A #GAsyncReadyCallback to call when the request is satisfied or %NULL.
  * @user_data: User data to pass to @callback.
  *
- * Asynchronously invokes the <link linkend="gdbus-method-org-manuel-Ganymed.add_node">add_node()</link> D-Bus method on @proxy.
+ * Asynchronously invokes the <link linkend="gdbus-method-org-manuel-Intercom.add_node">add_node()</link> D-Bus method on @proxy.
  * When the operation is finished, @callback will be invoked in the <link linkend="g-main-context-push-thread-default">thread-default main loop</link> of the thread you are calling this method from.
- * You can then call ganymed_call_add_node_finish() to get the result of the operation.
+ * You can then call intercom_call_add_node_finish() to get the result of the operation.
  *
- * See ganymed_call_add_node_sync() for the synchronous, blocking version of this method.
+ * See intercom_call_add_node_sync() for the synchronous, blocking version of this method.
  */
 void
-ganymed_call_add_node (
-    Ganymed *proxy,
+intercom_call_add_node (
+    Intercom *proxy,
     const gchar *const *arg_node_name,
     const gchar *arg_remote_public_key,
     GCancellable *cancellable,
@@ -638,18 +657,18 @@ ganymed_call_add_node (
 }
 
 /**
- * ganymed_call_add_node_finish:
- * @proxy: A #GanymedProxy.
- * @res: The #GAsyncResult obtained from the #GAsyncReadyCallback passed to ganymed_call_add_node().
+ * intercom_call_add_node_finish:
+ * @proxy: A #IntercomProxy.
+ * @res: The #GAsyncResult obtained from the #GAsyncReadyCallback passed to intercom_call_add_node().
  * @error: Return location for error or %NULL.
  *
- * Finishes an operation started with ganymed_call_add_node().
+ * Finishes an operation started with intercom_call_add_node().
  *
  * Returns: (skip): %TRUE if the call succeded, %FALSE if @error is set.
  */
 gboolean
-ganymed_call_add_node_finish (
-    Ganymed *proxy,
+intercom_call_add_node_finish (
+    Intercom *proxy,
     GAsyncResult *res,
     GError **error)
 {
@@ -665,22 +684,22 @@ _out:
 }
 
 /**
- * ganymed_call_add_node_sync:
- * @proxy: A #GanymedProxy.
+ * intercom_call_add_node_sync:
+ * @proxy: A #IntercomProxy.
  * @arg_node_name: Argument to pass with the method invocation.
  * @arg_remote_public_key: Argument to pass with the method invocation.
  * @cancellable: (allow-none): A #GCancellable or %NULL.
  * @error: Return location for error or %NULL.
  *
- * Synchronously invokes the <link linkend="gdbus-method-org-manuel-Ganymed.add_node">add_node()</link> D-Bus method on @proxy. The calling thread is blocked until a reply is received.
+ * Synchronously invokes the <link linkend="gdbus-method-org-manuel-Intercom.add_node">add_node()</link> D-Bus method on @proxy. The calling thread is blocked until a reply is received.
  *
- * See ganymed_call_add_node() for the asynchronous version of this method.
+ * See intercom_call_add_node() for the asynchronous version of this method.
  *
  * Returns: (skip): %TRUE if the call succeded, %FALSE if @error is set.
  */
 gboolean
-ganymed_call_add_node_sync (
-    Ganymed *proxy,
+intercom_call_add_node_sync (
+    Intercom *proxy,
     const gchar *const *arg_node_name,
     const gchar *arg_remote_public_key,
     GCancellable *cancellable,
@@ -706,22 +725,22 @@ _out:
 }
 
 /**
- * ganymed_call_find_node:
- * @proxy: A #GanymedProxy.
+ * intercom_call_find_node:
+ * @proxy: A #IntercomProxy.
  * @arg_keywords: Argument to pass with the method invocation.
  * @cancellable: (allow-none): A #GCancellable or %NULL.
  * @callback: A #GAsyncReadyCallback to call when the request is satisfied or %NULL.
  * @user_data: User data to pass to @callback.
  *
- * Asynchronously invokes the <link linkend="gdbus-method-org-manuel-Ganymed.find_node">find_node()</link> D-Bus method on @proxy.
+ * Asynchronously invokes the <link linkend="gdbus-method-org-manuel-Intercom.find_node">find_node()</link> D-Bus method on @proxy.
  * When the operation is finished, @callback will be invoked in the <link linkend="g-main-context-push-thread-default">thread-default main loop</link> of the thread you are calling this method from.
- * You can then call ganymed_call_find_node_finish() to get the result of the operation.
+ * You can then call intercom_call_find_node_finish() to get the result of the operation.
  *
- * See ganymed_call_find_node_sync() for the synchronous, blocking version of this method.
+ * See intercom_call_find_node_sync() for the synchronous, blocking version of this method.
  */
 void
-ganymed_call_find_node (
-    Ganymed *proxy,
+intercom_call_find_node (
+    Intercom *proxy,
     const gchar *const *arg_keywords,
     GCancellable *cancellable,
     GAsyncReadyCallback callback,
@@ -739,19 +758,19 @@ ganymed_call_find_node (
 }
 
 /**
- * ganymed_call_find_node_finish:
- * @proxy: A #GanymedProxy.
+ * intercom_call_find_node_finish:
+ * @proxy: A #IntercomProxy.
  * @out_nodes: (out): Return location for return parameter or %NULL to ignore.
- * @res: The #GAsyncResult obtained from the #GAsyncReadyCallback passed to ganymed_call_find_node().
+ * @res: The #GAsyncResult obtained from the #GAsyncReadyCallback passed to intercom_call_find_node().
  * @error: Return location for error or %NULL.
  *
- * Finishes an operation started with ganymed_call_find_node().
+ * Finishes an operation started with intercom_call_find_node().
  *
  * Returns: (skip): %TRUE if the call succeded, %FALSE if @error is set.
  */
 gboolean
-ganymed_call_find_node_finish (
-    Ganymed *proxy,
+intercom_call_find_node_finish (
+    Intercom *proxy,
     GVariant **out_nodes,
     GAsyncResult *res,
     GError **error)
@@ -769,22 +788,22 @@ _out:
 }
 
 /**
- * ganymed_call_find_node_sync:
- * @proxy: A #GanymedProxy.
+ * intercom_call_find_node_sync:
+ * @proxy: A #IntercomProxy.
  * @arg_keywords: Argument to pass with the method invocation.
  * @out_nodes: (out): Return location for return parameter or %NULL to ignore.
  * @cancellable: (allow-none): A #GCancellable or %NULL.
  * @error: Return location for error or %NULL.
  *
- * Synchronously invokes the <link linkend="gdbus-method-org-manuel-Ganymed.find_node">find_node()</link> D-Bus method on @proxy. The calling thread is blocked until a reply is received.
+ * Synchronously invokes the <link linkend="gdbus-method-org-manuel-Intercom.find_node">find_node()</link> D-Bus method on @proxy. The calling thread is blocked until a reply is received.
  *
- * See ganymed_call_find_node() for the asynchronous version of this method.
+ * See intercom_call_find_node() for the asynchronous version of this method.
  *
  * Returns: (skip): %TRUE if the call succeded, %FALSE if @error is set.
  */
 gboolean
-ganymed_call_find_node_sync (
-    Ganymed *proxy,
+intercom_call_find_node_sync (
+    Intercom *proxy,
     const gchar *const *arg_keywords,
     GVariant **out_nodes,
     GCancellable *cancellable,
@@ -810,19 +829,19 @@ _out:
 }
 
 /**
- * ganymed_complete_connect:
- * @object: A #Ganymed.
+ * intercom_complete_connect:
+ * @object: A #Intercom.
  * @invocation: (transfer full): A #GDBusMethodInvocation.
  * @fd_list: (allow-none): A #GUnixFDList or %NULL.
  * @fd: Parameter to return.
  *
- * Helper function used in service implementations to finish handling invocations of the <link linkend="gdbus-method-org-manuel-Ganymed.connect">connect()</link> D-Bus method. If you instead want to finish handling an invocation by returning an error, use g_dbus_method_invocation_return_error() or similar.
+ * Helper function used in service implementations to finish handling invocations of the <link linkend="gdbus-method-org-manuel-Intercom.connect">connect()</link> D-Bus method. If you instead want to finish handling an invocation by returning an error, use g_dbus_method_invocation_return_error() or similar.
  *
  * This method will free @invocation, you cannot use it afterwards.
  */
 void
-ganymed_complete_connect (
-    Ganymed *object,
+intercom_complete_connect (
+    Intercom *object,
     GDBusMethodInvocation *invocation,
     GUnixFDList *fd_list,
     GVariant *fd)
@@ -834,17 +853,17 @@ ganymed_complete_connect (
 }
 
 /**
- * ganymed_complete_add_node:
- * @object: A #Ganymed.
+ * intercom_complete_add_node:
+ * @object: A #Intercom.
  * @invocation: (transfer full): A #GDBusMethodInvocation.
  *
- * Helper function used in service implementations to finish handling invocations of the <link linkend="gdbus-method-org-manuel-Ganymed.add_node">add_node()</link> D-Bus method. If you instead want to finish handling an invocation by returning an error, use g_dbus_method_invocation_return_error() or similar.
+ * Helper function used in service implementations to finish handling invocations of the <link linkend="gdbus-method-org-manuel-Intercom.add_node">add_node()</link> D-Bus method. If you instead want to finish handling an invocation by returning an error, use g_dbus_method_invocation_return_error() or similar.
  *
  * This method will free @invocation, you cannot use it afterwards.
  */
 void
-ganymed_complete_add_node (
-    Ganymed *object,
+intercom_complete_add_node (
+    Intercom *object,
     GDBusMethodInvocation *invocation)
 {
   g_dbus_method_invocation_return_value (invocation,
@@ -852,18 +871,18 @@ ganymed_complete_add_node (
 }
 
 /**
- * ganymed_complete_find_node:
- * @object: A #Ganymed.
+ * intercom_complete_find_node:
+ * @object: A #Intercom.
  * @invocation: (transfer full): A #GDBusMethodInvocation.
  * @nodes: Parameter to return.
  *
- * Helper function used in service implementations to finish handling invocations of the <link linkend="gdbus-method-org-manuel-Ganymed.find_node">find_node()</link> D-Bus method. If you instead want to finish handling an invocation by returning an error, use g_dbus_method_invocation_return_error() or similar.
+ * Helper function used in service implementations to finish handling invocations of the <link linkend="gdbus-method-org-manuel-Intercom.find_node">find_node()</link> D-Bus method. If you instead want to finish handling an invocation by returning an error, use g_dbus_method_invocation_return_error() or similar.
  *
  * This method will free @invocation, you cannot use it afterwards.
  */
 void
-ganymed_complete_find_node (
-    Ganymed *object,
+intercom_complete_find_node (
+    Intercom *object,
     GDBusMethodInvocation *invocation,
     GVariant *nodes)
 {
@@ -875,38 +894,38 @@ ganymed_complete_find_node (
 /* ------------------------------------------------------------------------ */
 
 /**
- * GanymedProxy:
+ * IntercomProxy:
  *
- * The #GanymedProxy structure contains only private data and should only be accessed using the provided API.
+ * The #IntercomProxy structure contains only private data and should only be accessed using the provided API.
  */
 
 /**
- * GanymedProxyClass:
+ * IntercomProxyClass:
  * @parent_class: The parent class.
  *
- * Class structure for #GanymedProxy.
+ * Class structure for #IntercomProxy.
  */
 
-struct _GanymedProxyPrivate
+struct _IntercomProxyPrivate
 {
   GData *qdata;
 };
 
-static void ganymed_proxy_iface_init (GanymedIface *iface);
+static void intercom_proxy_iface_init (IntercomIface *iface);
 
-G_DEFINE_TYPE_WITH_CODE (GanymedProxy, ganymed_proxy, G_TYPE_DBUS_PROXY,
-                         G_IMPLEMENT_INTERFACE (TYPE_GANYMED, ganymed_proxy_iface_init));
+G_DEFINE_TYPE_WITH_CODE (IntercomProxy, intercom_proxy, G_TYPE_DBUS_PROXY,
+                         G_IMPLEMENT_INTERFACE (TYPE_INTERCOM, intercom_proxy_iface_init));
 
 static void
-ganymed_proxy_finalize (GObject *object)
+intercom_proxy_finalize (GObject *object)
 {
-  GanymedProxy *proxy = GANYMED_PROXY (object);
+  IntercomProxy *proxy = INTERCOM_PROXY (object);
   g_datalist_clear (&proxy->priv->qdata);
-  G_OBJECT_CLASS (ganymed_proxy_parent_class)->finalize (object);
+  G_OBJECT_CLASS (intercom_proxy_parent_class)->finalize (object);
 }
 
 static void
-ganymed_proxy_get_property (GObject      *object,
+intercom_proxy_get_property (GObject      *object,
   guint         prop_id,
   GValue       *value,
   GParamSpec   *pspec)
@@ -914,7 +933,7 @@ ganymed_proxy_get_property (GObject      *object,
 }
 
 static void
-ganymed_proxy_set_property (GObject      *object,
+intercom_proxy_set_property (GObject      *object,
   guint         prop_id,
   const GValue *value,
   GParamSpec   *pspec)
@@ -922,7 +941,7 @@ ganymed_proxy_set_property (GObject      *object,
 }
 
 static void
-ganymed_proxy_g_signal (GDBusProxy *proxy,
+intercom_proxy_g_signal (GDBusProxy *proxy,
   const gchar *sender_name,
   const gchar *signal_name,
   GVariant *parameters)
@@ -934,12 +953,12 @@ ganymed_proxy_g_signal (GDBusProxy *proxy,
   guint num_params;
   guint n;
   guint signal_id;
-  info = (_ExtendedGDBusSignalInfo *) g_dbus_interface_info_lookup_signal ((GDBusInterfaceInfo *) &_ganymed_interface_info, signal_name);
+  info = (_ExtendedGDBusSignalInfo *) g_dbus_interface_info_lookup_signal ((GDBusInterfaceInfo *) &_intercom_interface_info, signal_name);
   if (info == NULL)
     return;
   num_params = g_variant_n_children (parameters);
   paramv = g_new0 (GValue, num_params + 1);
-  g_value_init (&paramv[0], TYPE_GANYMED);
+  g_value_init (&paramv[0], TYPE_INTERCOM);
   g_value_set_object (&paramv[0], proxy);
   g_variant_iter_init (&iter, parameters);
   n = 1;
@@ -956,7 +975,7 @@ ganymed_proxy_g_signal (GDBusProxy *proxy,
         g_dbus_gvariant_to_gvalue (child, &paramv[n++]);
       g_variant_unref (child);
     }
-  signal_id = g_signal_lookup (info->signal_name, TYPE_GANYMED);
+  signal_id = g_signal_lookup (info->signal_name, TYPE_INTERCOM);
   g_signal_emitv (paramv, signal_id, 0, NULL);
   for (n = 0; n < num_params + 1; n++)
     g_value_unset (&paramv[n]);
@@ -964,11 +983,11 @@ ganymed_proxy_g_signal (GDBusProxy *proxy,
 }
 
 static void
-ganymed_proxy_g_properties_changed (GDBusProxy *_proxy,
+intercom_proxy_g_properties_changed (GDBusProxy *_proxy,
   GVariant *changed_properties,
   const gchar *const *invalidated_properties)
 {
-  GanymedProxy *proxy = GANYMED_PROXY (_proxy);
+  IntercomProxy *proxy = INTERCOM_PROXY (_proxy);
   guint n;
   const gchar *key;
   GVariantIter *iter;
@@ -976,7 +995,7 @@ ganymed_proxy_g_properties_changed (GDBusProxy *_proxy,
   g_variant_get (changed_properties, "a{sv}", &iter);
   while (g_variant_iter_next (iter, "{&sv}", &key, NULL))
     {
-      info = (_ExtendedGDBusPropertyInfo *) g_dbus_interface_info_lookup_property ((GDBusInterfaceInfo *) &_ganymed_interface_info, key);
+      info = (_ExtendedGDBusPropertyInfo *) g_dbus_interface_info_lookup_property ((GDBusInterfaceInfo *) &_intercom_interface_info, key);
       g_datalist_remove_data (&proxy->priv->qdata, key);
       if (info != NULL)
         g_object_notify (G_OBJECT (proxy), info->hyphen_name);
@@ -984,7 +1003,7 @@ ganymed_proxy_g_properties_changed (GDBusProxy *_proxy,
   g_variant_iter_free (iter);
   for (n = 0; invalidated_properties[n] != NULL; n++)
     {
-      info = (_ExtendedGDBusPropertyInfo *) g_dbus_interface_info_lookup_property ((GDBusInterfaceInfo *) &_ganymed_interface_info, invalidated_properties[n]);
+      info = (_ExtendedGDBusPropertyInfo *) g_dbus_interface_info_lookup_property ((GDBusInterfaceInfo *) &_intercom_interface_info, invalidated_properties[n]);
       g_datalist_remove_data (&proxy->priv->qdata, invalidated_properties[n]);
       if (info != NULL)
         g_object_notify (G_OBJECT (proxy), info->hyphen_name);
@@ -992,38 +1011,38 @@ ganymed_proxy_g_properties_changed (GDBusProxy *_proxy,
 }
 
 static void
-ganymed_proxy_init (GanymedProxy *proxy)
+intercom_proxy_init (IntercomProxy *proxy)
 {
-  proxy->priv = G_TYPE_INSTANCE_GET_PRIVATE (proxy, TYPE_GANYMED_PROXY, GanymedProxyPrivate);
-  g_dbus_proxy_set_interface_info (G_DBUS_PROXY (proxy), ganymed_interface_info ());
+  proxy->priv = G_TYPE_INSTANCE_GET_PRIVATE (proxy, TYPE_INTERCOM_PROXY, IntercomProxyPrivate);
+  g_dbus_proxy_set_interface_info (G_DBUS_PROXY (proxy), intercom_interface_info ());
 }
 
 static void
-ganymed_proxy_class_init (GanymedProxyClass *klass)
+intercom_proxy_class_init (IntercomProxyClass *klass)
 {
   GObjectClass *gobject_class;
   GDBusProxyClass *proxy_class;
 
-  g_type_class_add_private (klass, sizeof (GanymedProxyPrivate));
+  g_type_class_add_private (klass, sizeof (IntercomProxyPrivate));
 
   gobject_class = G_OBJECT_CLASS (klass);
-  gobject_class->finalize     = ganymed_proxy_finalize;
-  gobject_class->get_property = ganymed_proxy_get_property;
-  gobject_class->set_property = ganymed_proxy_set_property;
+  gobject_class->finalize     = intercom_proxy_finalize;
+  gobject_class->get_property = intercom_proxy_get_property;
+  gobject_class->set_property = intercom_proxy_set_property;
 
   proxy_class = G_DBUS_PROXY_CLASS (klass);
-  proxy_class->g_signal = ganymed_proxy_g_signal;
-  proxy_class->g_properties_changed = ganymed_proxy_g_properties_changed;
+  proxy_class->g_signal = intercom_proxy_g_signal;
+  proxy_class->g_properties_changed = intercom_proxy_g_properties_changed;
 
 }
 
 static void
-ganymed_proxy_iface_init (GanymedIface *iface)
+intercom_proxy_iface_init (IntercomIface *iface)
 {
 }
 
 /**
- * ganymed_proxy_new:
+ * intercom_proxy_new:
  * @connection: A #GDBusConnection.
  * @flags: Flags from the #GDBusProxyFlags enumeration.
  * @name: (allow-none): A bus name (well-known or unique) or %NULL if @connection is not a message bus connection.
@@ -1032,15 +1051,15 @@ ganymed_proxy_iface_init (GanymedIface *iface)
  * @callback: A #GAsyncReadyCallback to call when the request is satisfied.
  * @user_data: User data to pass to @callback.
  *
- * Asynchronously creates a proxy for the D-Bus interface <link linkend="gdbus-interface-org-manuel-Ganymed.top_of_page">org.manuel.Ganymed</link>. See g_dbus_proxy_new() for more details.
+ * Asynchronously creates a proxy for the D-Bus interface <link linkend="gdbus-interface-org-manuel-Intercom.top_of_page">org.manuel.Intercom</link>. See g_dbus_proxy_new() for more details.
  *
  * When the operation is finished, @callback will be invoked in the <link linkend="g-main-context-push-thread-default">thread-default main loop</link> of the thread you are calling this method from.
- * You can then call ganymed_proxy_new_finish() to get the result of the operation.
+ * You can then call intercom_proxy_new_finish() to get the result of the operation.
  *
- * See ganymed_proxy_new_sync() for the synchronous, blocking version of this constructor.
+ * See intercom_proxy_new_sync() for the synchronous, blocking version of this constructor.
  */
 void
-ganymed_proxy_new (
+intercom_proxy_new (
     GDBusConnection     *connection,
     GDBusProxyFlags      flags,
     const gchar         *name,
@@ -1049,20 +1068,20 @@ ganymed_proxy_new (
     GAsyncReadyCallback  callback,
     gpointer             user_data)
 {
-  g_async_initable_new_async (TYPE_GANYMED_PROXY, G_PRIORITY_DEFAULT, cancellable, callback, user_data, "g-flags", flags, "g-name", name, "g-connection", connection, "g-object-path", object_path, "g-interface-name", "org.manuel.Ganymed", NULL);
+  g_async_initable_new_async (TYPE_INTERCOM_PROXY, G_PRIORITY_DEFAULT, cancellable, callback, user_data, "g-flags", flags, "g-name", name, "g-connection", connection, "g-object-path", object_path, "g-interface-name", "org.manuel.Intercom", NULL);
 }
 
 /**
- * ganymed_proxy_new_finish:
- * @res: The #GAsyncResult obtained from the #GAsyncReadyCallback passed to ganymed_proxy_new().
+ * intercom_proxy_new_finish:
+ * @res: The #GAsyncResult obtained from the #GAsyncReadyCallback passed to intercom_proxy_new().
  * @error: Return location for error or %NULL
  *
- * Finishes an operation started with ganymed_proxy_new().
+ * Finishes an operation started with intercom_proxy_new().
  *
- * Returns: (transfer full) (type GanymedProxy): The constructed proxy object or %NULL if @error is set.
+ * Returns: (transfer full) (type IntercomProxy): The constructed proxy object or %NULL if @error is set.
  */
-Ganymed *
-ganymed_proxy_new_finish (
+Intercom *
+intercom_proxy_new_finish (
     GAsyncResult        *res,
     GError             **error)
 {
@@ -1072,13 +1091,13 @@ ganymed_proxy_new_finish (
   ret = g_async_initable_new_finish (G_ASYNC_INITABLE (source_object), res, error);
   g_object_unref (source_object);
   if (ret != NULL)
-    return GANYMED (ret);
+    return INTERCOM (ret);
   else
     return NULL;
 }
 
 /**
- * ganymed_proxy_new_sync:
+ * intercom_proxy_new_sync:
  * @connection: A #GDBusConnection.
  * @flags: Flags from the #GDBusProxyFlags enumeration.
  * @name: (allow-none): A bus name (well-known or unique) or %NULL if @connection is not a message bus connection.
@@ -1086,16 +1105,16 @@ ganymed_proxy_new_finish (
  * @cancellable: (allow-none): A #GCancellable or %NULL.
  * @error: Return location for error or %NULL
  *
- * Synchronously creates a proxy for the D-Bus interface <link linkend="gdbus-interface-org-manuel-Ganymed.top_of_page">org.manuel.Ganymed</link>. See g_dbus_proxy_new_sync() for more details.
+ * Synchronously creates a proxy for the D-Bus interface <link linkend="gdbus-interface-org-manuel-Intercom.top_of_page">org.manuel.Intercom</link>. See g_dbus_proxy_new_sync() for more details.
  *
  * The calling thread is blocked until a reply is received.
  *
- * See ganymed_proxy_new() for the asynchronous version of this constructor.
+ * See intercom_proxy_new() for the asynchronous version of this constructor.
  *
- * Returns: (transfer full) (type GanymedProxy): The constructed proxy object or %NULL if @error is set.
+ * Returns: (transfer full) (type IntercomProxy): The constructed proxy object or %NULL if @error is set.
  */
-Ganymed *
-ganymed_proxy_new_sync (
+Intercom *
+intercom_proxy_new_sync (
     GDBusConnection     *connection,
     GDBusProxyFlags      flags,
     const gchar         *name,
@@ -1104,16 +1123,16 @@ ganymed_proxy_new_sync (
     GError             **error)
 {
   GInitable *ret;
-  ret = g_initable_new (TYPE_GANYMED_PROXY, cancellable, error, "g-flags", flags, "g-name", name, "g-connection", connection, "g-object-path", object_path, "g-interface-name", "org.manuel.Ganymed", NULL);
+  ret = g_initable_new (TYPE_INTERCOM_PROXY, cancellable, error, "g-flags", flags, "g-name", name, "g-connection", connection, "g-object-path", object_path, "g-interface-name", "org.manuel.Intercom", NULL);
   if (ret != NULL)
-    return GANYMED (ret);
+    return INTERCOM (ret);
   else
     return NULL;
 }
 
 
 /**
- * ganymed_proxy_new_for_bus:
+ * intercom_proxy_new_for_bus:
  * @bus_type: A #GBusType.
  * @flags: Flags from the #GDBusProxyFlags enumeration.
  * @name: A bus name (well-known or unique).
@@ -1122,15 +1141,15 @@ ganymed_proxy_new_sync (
  * @callback: A #GAsyncReadyCallback to call when the request is satisfied.
  * @user_data: User data to pass to @callback.
  *
- * Like ganymed_proxy_new() but takes a #GBusType instead of a #GDBusConnection.
+ * Like intercom_proxy_new() but takes a #GBusType instead of a #GDBusConnection.
  *
  * When the operation is finished, @callback will be invoked in the <link linkend="g-main-context-push-thread-default">thread-default main loop</link> of the thread you are calling this method from.
- * You can then call ganymed_proxy_new_for_bus_finish() to get the result of the operation.
+ * You can then call intercom_proxy_new_for_bus_finish() to get the result of the operation.
  *
- * See ganymed_proxy_new_for_bus_sync() for the synchronous, blocking version of this constructor.
+ * See intercom_proxy_new_for_bus_sync() for the synchronous, blocking version of this constructor.
  */
 void
-ganymed_proxy_new_for_bus (
+intercom_proxy_new_for_bus (
     GBusType             bus_type,
     GDBusProxyFlags      flags,
     const gchar         *name,
@@ -1139,20 +1158,20 @@ ganymed_proxy_new_for_bus (
     GAsyncReadyCallback  callback,
     gpointer             user_data)
 {
-  g_async_initable_new_async (TYPE_GANYMED_PROXY, G_PRIORITY_DEFAULT, cancellable, callback, user_data, "g-flags", flags, "g-name", name, "g-bus-type", bus_type, "g-object-path", object_path, "g-interface-name", "org.manuel.Ganymed", NULL);
+  g_async_initable_new_async (TYPE_INTERCOM_PROXY, G_PRIORITY_DEFAULT, cancellable, callback, user_data, "g-flags", flags, "g-name", name, "g-bus-type", bus_type, "g-object-path", object_path, "g-interface-name", "org.manuel.Intercom", NULL);
 }
 
 /**
- * ganymed_proxy_new_for_bus_finish:
- * @res: The #GAsyncResult obtained from the #GAsyncReadyCallback passed to ganymed_proxy_new_for_bus().
+ * intercom_proxy_new_for_bus_finish:
+ * @res: The #GAsyncResult obtained from the #GAsyncReadyCallback passed to intercom_proxy_new_for_bus().
  * @error: Return location for error or %NULL
  *
- * Finishes an operation started with ganymed_proxy_new_for_bus().
+ * Finishes an operation started with intercom_proxy_new_for_bus().
  *
- * Returns: (transfer full) (type GanymedProxy): The constructed proxy object or %NULL if @error is set.
+ * Returns: (transfer full) (type IntercomProxy): The constructed proxy object or %NULL if @error is set.
  */
-Ganymed *
-ganymed_proxy_new_for_bus_finish (
+Intercom *
+intercom_proxy_new_for_bus_finish (
     GAsyncResult        *res,
     GError             **error)
 {
@@ -1162,13 +1181,13 @@ ganymed_proxy_new_for_bus_finish (
   ret = g_async_initable_new_finish (G_ASYNC_INITABLE (source_object), res, error);
   g_object_unref (source_object);
   if (ret != NULL)
-    return GANYMED (ret);
+    return INTERCOM (ret);
   else
     return NULL;
 }
 
 /**
- * ganymed_proxy_new_for_bus_sync:
+ * intercom_proxy_new_for_bus_sync:
  * @bus_type: A #GBusType.
  * @flags: Flags from the #GDBusProxyFlags enumeration.
  * @name: A bus name (well-known or unique).
@@ -1176,16 +1195,16 @@ ganymed_proxy_new_for_bus_finish (
  * @cancellable: (allow-none): A #GCancellable or %NULL.
  * @error: Return location for error or %NULL
  *
- * Like ganymed_proxy_new_sync() but takes a #GBusType instead of a #GDBusConnection.
+ * Like intercom_proxy_new_sync() but takes a #GBusType instead of a #GDBusConnection.
  *
  * The calling thread is blocked until a reply is received.
  *
- * See ganymed_proxy_new_for_bus() for the asynchronous version of this constructor.
+ * See intercom_proxy_new_for_bus() for the asynchronous version of this constructor.
  *
- * Returns: (transfer full) (type GanymedProxy): The constructed proxy object or %NULL if @error is set.
+ * Returns: (transfer full) (type IntercomProxy): The constructed proxy object or %NULL if @error is set.
  */
-Ganymed *
-ganymed_proxy_new_for_bus_sync (
+Intercom *
+intercom_proxy_new_for_bus_sync (
     GBusType             bus_type,
     GDBusProxyFlags      flags,
     const gchar         *name,
@@ -1194,9 +1213,9 @@ ganymed_proxy_new_for_bus_sync (
     GError             **error)
 {
   GInitable *ret;
-  ret = g_initable_new (TYPE_GANYMED_PROXY, cancellable, error, "g-flags", flags, "g-name", name, "g-bus-type", bus_type, "g-object-path", object_path, "g-interface-name", "org.manuel.Ganymed", NULL);
+  ret = g_initable_new (TYPE_INTERCOM_PROXY, cancellable, error, "g-flags", flags, "g-name", name, "g-bus-type", bus_type, "g-object-path", object_path, "g-interface-name", "org.manuel.Intercom", NULL);
   if (ret != NULL)
-    return GANYMED (ret);
+    return INTERCOM (ret);
   else
     return NULL;
 }
@@ -1205,19 +1224,19 @@ ganymed_proxy_new_for_bus_sync (
 /* ------------------------------------------------------------------------ */
 
 /**
- * GanymedSkeleton:
+ * IntercomSkeleton:
  *
- * The #GanymedSkeleton structure contains only private data and should only be accessed using the provided API.
+ * The #IntercomSkeleton structure contains only private data and should only be accessed using the provided API.
  */
 
 /**
- * GanymedSkeletonClass:
+ * IntercomSkeletonClass:
  * @parent_class: The parent class.
  *
- * Class structure for #GanymedSkeleton.
+ * Class structure for #IntercomSkeleton.
  */
 
-struct _GanymedSkeletonPrivate
+struct _IntercomSkeletonPrivate
 {
   GValue *properties;
   GList *changed_properties;
@@ -1227,7 +1246,7 @@ struct _GanymedSkeletonPrivate
 };
 
 static void
-_ganymed_skeleton_handle_method_call (
+_intercom_skeleton_handle_method_call (
   GDBusConnection *connection,
   const gchar *sender,
   const gchar *object_path,
@@ -1237,7 +1256,7 @@ _ganymed_skeleton_handle_method_call (
   GDBusMethodInvocation *invocation,
   gpointer user_data)
 {
-  GanymedSkeleton *skeleton = GANYMED_SKELETON (user_data);
+  IntercomSkeleton *skeleton = INTERCOM_SKELETON (user_data);
   _ExtendedGDBusMethodInfo *info;
   GVariantIter iter;
   GVariant *child;
@@ -1252,7 +1271,7 @@ _ganymed_skeleton_handle_method_call (
   num_params = g_variant_n_children (parameters);
   num_extra = info->pass_fdlist ? 3 : 2;  paramv = g_new0 (GValue, num_params + num_extra);
   n = 0;
-  g_value_init (&paramv[n], TYPE_GANYMED);
+  g_value_init (&paramv[n], TYPE_INTERCOM);
   g_value_set_object (&paramv[n++], skeleton);
   g_value_init (&paramv[n], G_TYPE_DBUS_METHOD_INVOCATION);
   g_value_set_object (&paramv[n++], invocation);
@@ -1279,7 +1298,7 @@ _ganymed_skeleton_handle_method_call (
         g_dbus_gvariant_to_gvalue (child, &paramv[n++]);
       g_variant_unref (child);
     }
-  signal_id = g_signal_lookup (info->signal_name, TYPE_GANYMED);
+  signal_id = g_signal_lookup (info->signal_name, TYPE_INTERCOM);
   g_value_init (&return_value, G_TYPE_BOOLEAN);
   g_signal_emitv (paramv, signal_id, 0, &return_value);
   if (!g_value_get_boolean (&return_value))
@@ -1291,7 +1310,7 @@ _ganymed_skeleton_handle_method_call (
 }
 
 static GVariant *
-_ganymed_skeleton_handle_get_property (
+_intercom_skeleton_handle_get_property (
   GDBusConnection *connection,
   const gchar *sender,
   const gchar *object_path,
@@ -1300,13 +1319,13 @@ _ganymed_skeleton_handle_get_property (
   GError **error,
   gpointer user_data)
 {
-  GanymedSkeleton *skeleton = GANYMED_SKELETON (user_data);
+  IntercomSkeleton *skeleton = INTERCOM_SKELETON (user_data);
   GValue value = G_VALUE_INIT;
   GParamSpec *pspec;
   _ExtendedGDBusPropertyInfo *info;
   GVariant *ret;
   ret = NULL;
-  info = (_ExtendedGDBusPropertyInfo *) g_dbus_interface_info_lookup_property ((GDBusInterfaceInfo *) &_ganymed_interface_info, property_name);
+  info = (_ExtendedGDBusPropertyInfo *) g_dbus_interface_info_lookup_property ((GDBusInterfaceInfo *) &_intercom_interface_info, property_name);
   g_assert (info != NULL);
   pspec = g_object_class_find_property (G_OBJECT_GET_CLASS (skeleton), info->hyphen_name);
   if (pspec == NULL)
@@ -1324,7 +1343,7 @@ _ganymed_skeleton_handle_get_property (
 }
 
 static gboolean
-_ganymed_skeleton_handle_set_property (
+_intercom_skeleton_handle_set_property (
   GDBusConnection *connection,
   const gchar *sender,
   const gchar *object_path,
@@ -1334,13 +1353,13 @@ _ganymed_skeleton_handle_set_property (
   GError **error,
   gpointer user_data)
 {
-  GanymedSkeleton *skeleton = GANYMED_SKELETON (user_data);
+  IntercomSkeleton *skeleton = INTERCOM_SKELETON (user_data);
   GValue value = G_VALUE_INIT;
   GParamSpec *pspec;
   _ExtendedGDBusPropertyInfo *info;
   gboolean ret;
   ret = FALSE;
-  info = (_ExtendedGDBusPropertyInfo *) g_dbus_interface_info_lookup_property ((GDBusInterfaceInfo *) &_ganymed_interface_info, property_name);
+  info = (_ExtendedGDBusPropertyInfo *) g_dbus_interface_info_lookup_property ((GDBusInterfaceInfo *) &_intercom_interface_info, property_name);
   g_assert (info != NULL);
   pspec = g_object_class_find_property (G_OBJECT_GET_CLASS (skeleton), info->hyphen_name);
   if (pspec == NULL)
@@ -1360,42 +1379,42 @@ _ganymed_skeleton_handle_set_property (
   return ret;
 }
 
-static const GDBusInterfaceVTable _ganymed_skeleton_vtable =
+static const GDBusInterfaceVTable _intercom_skeleton_vtable =
 {
-  _ganymed_skeleton_handle_method_call,
-  _ganymed_skeleton_handle_get_property,
-  _ganymed_skeleton_handle_set_property
+  _intercom_skeleton_handle_method_call,
+  _intercom_skeleton_handle_get_property,
+  _intercom_skeleton_handle_set_property
 };
 
 static GDBusInterfaceInfo *
-ganymed_skeleton_dbus_interface_get_info (GDBusInterfaceSkeleton *skeleton)
+intercom_skeleton_dbus_interface_get_info (GDBusInterfaceSkeleton *skeleton)
 {
-  return ganymed_interface_info ();
+  return intercom_interface_info ();
 }
 
 static GDBusInterfaceVTable *
-ganymed_skeleton_dbus_interface_get_vtable (GDBusInterfaceSkeleton *skeleton)
+intercom_skeleton_dbus_interface_get_vtable (GDBusInterfaceSkeleton *skeleton)
 {
-  return (GDBusInterfaceVTable *) &_ganymed_skeleton_vtable;
+  return (GDBusInterfaceVTable *) &_intercom_skeleton_vtable;
 }
 
 static GVariant *
-ganymed_skeleton_dbus_interface_get_properties (GDBusInterfaceSkeleton *_skeleton)
+intercom_skeleton_dbus_interface_get_properties (GDBusInterfaceSkeleton *_skeleton)
 {
-  GanymedSkeleton *skeleton = GANYMED_SKELETON (_skeleton);
+  IntercomSkeleton *skeleton = INTERCOM_SKELETON (_skeleton);
 
   GVariantBuilder builder;
   guint n;
   g_variant_builder_init (&builder, G_VARIANT_TYPE ("a{sv}"));
-  if (_ganymed_interface_info.parent_struct.properties == NULL)
+  if (_intercom_interface_info.parent_struct.properties == NULL)
     goto out;
-  for (n = 0; _ganymed_interface_info.parent_struct.properties[n] != NULL; n++)
+  for (n = 0; _intercom_interface_info.parent_struct.properties[n] != NULL; n++)
     {
-      GDBusPropertyInfo *info = _ganymed_interface_info.parent_struct.properties[n];
+      GDBusPropertyInfo *info = _intercom_interface_info.parent_struct.properties[n];
       if (info->flags & G_DBUS_PROPERTY_INFO_FLAGS_READABLE)
         {
           GVariant *value;
-          value = _ganymed_skeleton_handle_get_property (g_dbus_interface_skeleton_get_connection (G_DBUS_INTERFACE_SKELETON (skeleton)), NULL, g_dbus_interface_skeleton_get_object_path (G_DBUS_INTERFACE_SKELETON (skeleton)), "org.manuel.Ganymed", info->name, NULL, skeleton);
+          value = _intercom_skeleton_handle_get_property (g_dbus_interface_skeleton_get_connection (G_DBUS_INTERFACE_SKELETON (skeleton)), NULL, g_dbus_interface_skeleton_get_object_path (G_DBUS_INTERFACE_SKELETON (skeleton)), "org.manuel.Intercom", info->name, NULL, skeleton);
           if (value != NULL)
             {
               g_variant_take_ref (value);
@@ -1409,67 +1428,67 @@ out:
 }
 
 static void
-ganymed_skeleton_dbus_interface_flush (GDBusInterfaceSkeleton *_skeleton)
+intercom_skeleton_dbus_interface_flush (GDBusInterfaceSkeleton *_skeleton)
 {
 }
 
-static void ganymed_skeleton_iface_init (GanymedIface *iface);
-G_DEFINE_TYPE_WITH_CODE (GanymedSkeleton, ganymed_skeleton, G_TYPE_DBUS_INTERFACE_SKELETON,
-                         G_IMPLEMENT_INTERFACE (TYPE_GANYMED, ganymed_skeleton_iface_init));
+static void intercom_skeleton_iface_init (IntercomIface *iface);
+G_DEFINE_TYPE_WITH_CODE (IntercomSkeleton, intercom_skeleton, G_TYPE_DBUS_INTERFACE_SKELETON,
+                         G_IMPLEMENT_INTERFACE (TYPE_INTERCOM, intercom_skeleton_iface_init));
 
 static void
-ganymed_skeleton_finalize (GObject *object)
+intercom_skeleton_finalize (GObject *object)
 {
-  GanymedSkeleton *skeleton = GANYMED_SKELETON (object);
+  IntercomSkeleton *skeleton = INTERCOM_SKELETON (object);
   g_list_free_full (skeleton->priv->changed_properties, (GDestroyNotify) _changed_property_free);
   if (skeleton->priv->changed_properties_idle_source != NULL)
     g_source_destroy (skeleton->priv->changed_properties_idle_source);
   g_main_context_unref (skeleton->priv->context);
   g_mutex_clear (&skeleton->priv->lock);
-  G_OBJECT_CLASS (ganymed_skeleton_parent_class)->finalize (object);
+  G_OBJECT_CLASS (intercom_skeleton_parent_class)->finalize (object);
 }
 
 static void
-ganymed_skeleton_init (GanymedSkeleton *skeleton)
+intercom_skeleton_init (IntercomSkeleton *skeleton)
 {
-  skeleton->priv = G_TYPE_INSTANCE_GET_PRIVATE (skeleton, TYPE_GANYMED_SKELETON, GanymedSkeletonPrivate);
+  skeleton->priv = G_TYPE_INSTANCE_GET_PRIVATE (skeleton, TYPE_INTERCOM_SKELETON, IntercomSkeletonPrivate);
   g_mutex_init (&skeleton->priv->lock);
   skeleton->priv->context = g_main_context_ref_thread_default ();
 }
 
 static void
-ganymed_skeleton_class_init (GanymedSkeletonClass *klass)
+intercom_skeleton_class_init (IntercomSkeletonClass *klass)
 {
   GObjectClass *gobject_class;
   GDBusInterfaceSkeletonClass *skeleton_class;
 
-  g_type_class_add_private (klass, sizeof (GanymedSkeletonPrivate));
+  g_type_class_add_private (klass, sizeof (IntercomSkeletonPrivate));
 
   gobject_class = G_OBJECT_CLASS (klass);
-  gobject_class->finalize = ganymed_skeleton_finalize;
+  gobject_class->finalize = intercom_skeleton_finalize;
 
   skeleton_class = G_DBUS_INTERFACE_SKELETON_CLASS (klass);
-  skeleton_class->get_info = ganymed_skeleton_dbus_interface_get_info;
-  skeleton_class->get_properties = ganymed_skeleton_dbus_interface_get_properties;
-  skeleton_class->flush = ganymed_skeleton_dbus_interface_flush;
-  skeleton_class->get_vtable = ganymed_skeleton_dbus_interface_get_vtable;
+  skeleton_class->get_info = intercom_skeleton_dbus_interface_get_info;
+  skeleton_class->get_properties = intercom_skeleton_dbus_interface_get_properties;
+  skeleton_class->flush = intercom_skeleton_dbus_interface_flush;
+  skeleton_class->get_vtable = intercom_skeleton_dbus_interface_get_vtable;
 }
 
 static void
-ganymed_skeleton_iface_init (GanymedIface *iface)
+intercom_skeleton_iface_init (IntercomIface *iface)
 {
 }
 
 /**
- * ganymed_skeleton_new:
+ * intercom_skeleton_new:
  *
- * Creates a skeleton object for the D-Bus interface <link linkend="gdbus-interface-org-manuel-Ganymed.top_of_page">org.manuel.Ganymed</link>.
+ * Creates a skeleton object for the D-Bus interface <link linkend="gdbus-interface-org-manuel-Intercom.top_of_page">org.manuel.Intercom</link>.
  *
- * Returns: (transfer full) (type GanymedSkeleton): The skeleton object.
+ * Returns: (transfer full) (type IntercomSkeleton): The skeleton object.
  */
-Ganymed *
-ganymed_skeleton_new (void)
+Intercom *
+intercom_skeleton_new (void)
 {
-  return GANYMED (g_object_new (TYPE_GANYMED_SKELETON, NULL));
+  return INTERCOM (g_object_new (TYPE_INTERCOM_SKELETON, NULL));
 }
 

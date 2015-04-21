@@ -26,7 +26,7 @@ impl IceAgent {
 		let ctx       = mainloop.get_context() as *mut GMainContext;
 		let mut agent = try!(NiceAgent::new(ctx, controlling_mode));
 
-		let (stream, state_rx) = try!(agent.add_stream(Some("ganymed")));
+		let (stream, state_rx) = try!(agent.add_stream(Some("intercom")));
 
 		thread::Builder::new().name("IceAgent::GMainLoop".to_string()).spawn(move || {
 			mainloop.run();

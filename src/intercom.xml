@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 
-<node name="/org/manuel/Ganymed">
-<interface name='org.manuel.Ganymed'>
+<node name="/org/manuel/Intercom">
+<interface name='org.manuel.Intercom'>
 	<method name="connect">
 		<annotation name="org.gtk.GDBus.C.UnixFD" value="true"/>
 

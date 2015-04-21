@@ -6,6 +6,7 @@ extern crate nice;
 extern crate ecdh;
 extern crate openssl;
 extern crate byteorder;
+extern crate env_logger;
 
 use std::os::unix::io::RawFd;
 use std::thread;
@@ -33,7 +34,7 @@ mod dbus_request;
 mod ice;
 mod bindings_lunadht;
 mod bindings_glib;
-mod bindings_ganymed;
+mod bindings_intercom_dbus;
 mod glib;
 mod fake_dht;
 mod utils;
@@ -87,12 +88,16 @@ fn generate_cert(private_key: &PrivateKey) -> Result<X509,()> {
 }
 
 fn main() {
+	env_logger::init().unwrap();
+
 	let mut args = env::args();
 	args.next();
 	let dbus_path = args.next().unwrap();
 	let local_private_key = args.next().unwrap().into_bytes();
 
+        info!("dbus service: {}", dbus_path);
 	let dbus_service = DBusService::new(dbus_path.borrow());
+        info!("dbus service done");
 
 	for request in dbus_service {
 		let my_private_key = local_private_key.clone();

@@ -16,7 +16,7 @@ use bindings_glib::g_type_init;
 use bindings_glib::g_bus_own_name;
 use bindings_glib::g_dbus_connection_get_capabilities;
 use bindings_glib::g_dbus_interface_skeleton_export;
-use bindings_ganymed::ganymed_skeleton_new;
+use bindings_intercom_dbus::intercom_skeleton_new;
 
 use ::ConnectError;
 use ::DBusResponder;
@@ -104,7 +104,7 @@ impl DBusService<GInvocation> {
 		};
 		assert!(myself.supports_unix_fd_passing());
 
-		myself.export_object_path("/org/manuel/Ganymed", tx);
+		myself.export_object_path("/org/manuel/Intercom", tx);
 
 	    myself
 	}
@@ -139,7 +139,7 @@ impl DBusService<GInvocation> {
 	                      obj_path: &str,
 	                      tx:       Sender<DBusRequest<GInvocation>>)
 	{
-		let ptr = unsafe { ganymed_skeleton_new() as *mut i32 };
+		let ptr = unsafe { intercom_skeleton_new() as *mut i32 };
 		let obj = GObject::from_ptr(ptr);
 
 		unsafe {
@@ -188,13 +188,13 @@ impl DBusResponder for GInvocation {
 	fn respond_error(&self, err: ::ConnectError) -> Result<(),()> {
 		let (name, msg) = match err {
 			ConnectError::RemoteCredentialsNotFound => 
-				("org.manuel.Ganymed.credentials_not_found", ""),
+				("org.manuel.Intercom.credentials_not_found", ""),
 			ConnectError::IceConnectFailed => 
-				("org.manuel.Ganymed.nice_connect_failed", ""),
+				("org.manuel.Intercom.nice_connect_failed", ""),
 			ConnectError::SslError(_) => 
-				("org.manuel.Ganymed.ssl_error", ""),
+				("org.manuel.Intercom.ssl_error", ""),
 			ConnectError::FOO =>
-				("org.manuel.Ganymed.not_implemented", ""),
+				("org.manuel.Intercom.not_implemented", ""),
 		};
 
 		self.return_dbus_error(name, msg);
