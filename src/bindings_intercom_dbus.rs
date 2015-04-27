@@ -2,9 +2,6 @@
 
 extern crate libc;
 
-use std::mem;
-
-
 /*
 struct _Intercom
 */

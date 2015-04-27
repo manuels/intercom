@@ -90,7 +90,7 @@ impl<R:DBusResponder> DBusRequest<R>
 			                               &cert,
 			                               &mut agent,
 			                               dht);
-			info!("{}\tloop: fd={:?}", controlling_mode, fd.is_ok());
+			info!("{}\tloop: fd={:?}", controlling_mode, fd);
 
 			match fd {
 				Ok(_) => { break },

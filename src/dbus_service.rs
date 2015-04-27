@@ -3,6 +3,8 @@ use libc::types::os::arch::c95::c_long;
 use std::thread;
 use std::mem;
 
+extern crate libc;
+
 use dbus_request::DBusRequest;
 use nice::glib2::GMainLoop;
 use bindings_glib::GBusType::*;
@@ -56,7 +58,8 @@ extern fn on_name_acquired(conn: c_long,
 
 extern fn connect_to_node(_:         *mut i32,
 			invocation_ptr:          *mut i32,
-			fd_list:                 *mut i32,
+			/*fd_list*/_:            *mut i32,
+			socket_type:             libc::c_int,
 			gvar_remote_public_key:  *mut i32,
 			port:                    guint,
 			timeout:                 guint,
@@ -78,6 +81,7 @@ extern fn connect_to_node(_:         *mut i32,
 		panic!("connect_to_node(): send() failed!");
 	}
 
+	debug!("connect_to_node() done.");
 	TRUE
 }
 
@@ -98,15 +102,15 @@ impl DBusService<GInvocation> {
 		let conn = DBusService::acquire_name(service_name, bus_type, flags);
 
 		let (tx, rx) = channel();
-		let myself = DBusService {
+		let this = DBusService {
 			ptr: conn as *mut i32,
 			rx:  rx
 		};
-		assert!(myself.supports_unix_fd_passing());
+		assert!(this.supports_unix_fd_passing());
 
-		myself.export_object_path("/org/manuel/Intercom", tx);
+		this.export_object_path("/org/manuel/Intercom", tx);
 
-	    myself
+	    this
 	}
 
 	fn acquire_name(service_name: &str,
@@ -179,7 +183,11 @@ impl<R:'static+DBusResponder+Send> Iterator for DBusService<R> {
 
 impl DBusResponder for GInvocation {
 	fn respond_ok(&self, fd: RawFd) -> Result<(),()> {
-		let result = GVariant::new_tuple(vec![GVariant::from_fd(fd)]);
+		debug!("GInvocation::respond_ok() 1/2");
+
+		let fd_idx = 0;
+		let result = GVariant::new_fd_tuple(fd_idx);
+		debug!("GInvocation::respond_ok() 2/2");
 
 		self.return_result(&result, vec![fd]);
 		Ok(())
@@ -187,6 +195,8 @@ impl DBusResponder for GInvocation {
 
 	fn respond_error(&self, err: ::ConnectError) -> Result<(),()> {
 		let (name, msg) = match err {
+			ConnectError::InvalidRequest => 
+				("org.manuel.Intercom.InvalidRequest", ""),
 			ConnectError::RemoteCredentialsNotFound => 
 				("org.manuel.Intercom.credentials_not_found", ""),
 			ConnectError::IceConnectFailed => 

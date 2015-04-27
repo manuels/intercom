@@ -43,6 +43,7 @@ mod ssl;
 
 #[derive(Debug)]
 pub enum ConnectError {
+	InvalidRequest,
 	RemoteCredentialsNotFound,
 	IceConnectFailed,
 	SslError(openssl::ssl::error::SslError),
@@ -101,12 +102,18 @@ fn main() {
 
 	for request in dbus_service {
 		let my_private_key = local_private_key.clone();
+		let your_public_key = PublicKey::from_vec(&request.remote_public_key.clone());
 
 		thread::spawn(move || {
 			let my_private_key = PrivateKey::from_vec(&my_private_key).unwrap();
 
 			let my_public_key   = my_private_key.get_public_key();
-			let your_public_key = PublicKey::from_vec(&request.remote_public_key.clone()).unwrap();
+			
+			if your_public_key.is_err() {
+				request.invocation.respond(Err(ConnectError::InvalidRequest)).unwrap();
+				return
+			}
+			let your_public_key = your_public_key.unwrap();
 
 			let my_hash   = my_public_key.to_vec() + &your_public_key.to_vec()[..];
 			let your_hash = your_public_key.to_vec() + &my_public_key.to_vec()[..];
@@ -123,6 +130,7 @@ fn main() {
 			                            &your_hash,
 			                            &cert,
 			                            &mut dht);
+			debug!("hanled: {:?}", result);
 			request.invocation.respond(result).unwrap();
 		});
 	}
