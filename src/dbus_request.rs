@@ -1,14 +1,16 @@
 extern crate time;
+extern crate pseudotcp;
 
 use libc::{c_void};
 
 use std::os::unix::io::RawFd;
 use time::Duration;
 use time::PreciseTime;
-use std::thread::sleep_ms;
+use std::thread::{sleep_ms,spawn};
 use std::io::Cursor;
 use std::sync::mpsc::channel;
 use std::sync::mpsc::{Sender,Receiver};
+use std::os::unix::io::AsRawFd;
 
 use fake_dht::FakeDHT;
 use ice::IceAgent;
@@ -30,10 +32,12 @@ use ::DHT as DHT_pull_in_scope;
 use ::ConnectError;
 use ::DBusResponder;
 
-use libc::consts::os::bsd44::SOCK_DGRAM;
+use pseudotcp::PseudoTcpStream;
+use libc::consts::os::bsd44::{SOCK_DGRAM, SOCK_STREAM};
 use libc::consts::os::bsd44::AF_UNIX;
 use ssl::SslChannel;
 use utils::socket::ChannelToSocket;
+use syscalls;
 
 type DHT = FakeDHT;
 type SharedKey = Vec<u8>;
@@ -135,31 +139,36 @@ impl<R:DBusResponder> DBusRequest<R>
 			let mut unix_time = vec![];
 			unix_time.write_i64::<LittleEndian>(now.sec).unwrap();
 
-			Ok(unix_time + &cred[..])
+			Ok(unix_time.into_iter().chain(cred.into_iter()).collect())
 		};
 
 		let select_most_recent = |mut v:Vec<Vec<u8>>| {
 			v.sort_by(|x,y| {
 				let mut x = Cursor::new(x.clone());
 				let mut y = Cursor::new(y.clone());
+				x.set_position(0);
+				y.set_position(0);
 				let x = x.read_i64::<LittleEndian>().unwrap();
 				let y = y.read_i64::<LittleEndian>().unwrap();
 				x.cmp(&y).reverse()
 			});
+
 			let credentials = v.get(0).unwrap().split_at(64/8);
 			Ok(credentials.1.to_vec())
 		};
 
-		Ok(agent.get_local_credentials())
+		agent.get_local_credentials().map_err(|_| ConnectError::FOO)
+			.and_then(|l| {debug!("raw creds len={} = '{}'", l.len(), ::std::str::from_utf8(&l).unwrap_or("<invalid utf8>")); Ok(l)})
 			.and_then(prepend_time)
 			.and_then(|c| DBusRequest::<R>::encrypt_then_mac(shared_key, &c))
 			.and_then(|c| publish_local_credentials(dht, c))
 			.and_then(|_| lookup_remote_credentials(dht))
 			.and_then(|l| DBusRequest::<R>::decrypt(shared_key, &l))
 			.and_then(select_most_recent)
-			.and_then(|c| {debug!("DBusRequest: remote creds='{}'", ::std::str::from_utf8(&c).unwrap()); Ok(c)})
+			.and_then(|c| {debug!("DBusRequest: remote creds=(len={}) '{}'", c.len(), ::std::str::from_utf8(&c).unwrap_or("<invalid utf8>")); Ok(c)})
 			.and_then(|c| p2p_connect(agent, c))
-			.and_then(|ch| self.ssl_connect(ch, &local_private_key, is_server, &remote_public_key, &cert))
+			//.and_then(|ch| self.ssl_connect(ch, &local_private_key, is_server, &remote_public_key, &cert))
+			.and_then(|ch| self.create_fd(ch, is_server, true))
 	}
 
 	/// bloat up 512-bit shared ECDH key to 768 bits (key, IC, hash = 3*256 bits)
@@ -193,7 +202,7 @@ impl<R:DBusResponder> DBusRequest<R>
 		let ciphertext = crypto::symm::encrypt(CRYPTO, &key[..], iv.to_vec(), plaintext);
 		let mac = hmac::hmac(HMAC_HASH, &hash[..], &ciphertext[..]);
 
-		Ok(mac + &ciphertext[..])
+		Ok(mac.into_iter().chain(ciphertext.into_iter()).collect())
 	}
 
 	fn decrypt(shared_key:  &Vec<u8>,
@@ -234,10 +243,10 @@ impl<R:DBusResponder> DBusRequest<R>
 	               is_server: bool,
 	               remote_public_key: &PublicKey,
 	               cert: &X509)
-		-> Result<RawFd,ConnectError>
+		-> Result<(Sender<Vec<u8>>, Receiver<Vec<u8>>),ConnectError>
 	{
 		info!("{}\tssl_connect()", is_server);
-		let ptr = remote_public_key.to_evp_pkey().unwrap() as *mut c_void;
+		let ptr = remote_public_key.to_evp_pkey().unwrap() as *mut c_void; // TODO: free ptr!!!
 		let expected_key = PKey::from_handle(ptr, Parts::Public);
 
 		fn callback(_preverify_ok: bool, x509_ctx: &X509StoreContext, expected_key: &PKey) -> bool{
@@ -248,7 +257,7 @@ impl<R:DBusResponder> DBusRequest<R>
 				Some(cert) => {
 					let actual_key = cert.public_key();
 					
-					if actual_key == *expected_key {
+					if actual_key.public_eq(expected_key) {
 						true
 					} else {
 						warn!("Expected different public key!");
@@ -268,8 +277,8 @@ impl<R:DBusResponder> DBusRequest<R>
 			ConnectError::SslError(e)
 		};
 
-		let cipher = concat!( /* TODO: GCM! */
-			"ECDHE-ECDSA-AES128-SHA256,",// won't work with DTLSv1 (but probably with v1.2)
+		let cipher = concat!(
+			"ECDHE-ECDSA-AES128-GCM-SHA256,",// won't work with DTLSv1 (but probably with v1.2)
 			"ECDHE-ECDSA-AES128-SHA256,",// won't work with DTLSv1 (but probably with v1.2)
 			"ECDHE-ECDSA-AES128-SHA,",   // won't work with DTLSv1 (but probably with v1.2)
 			"ECDH-ECDSA-AES128-SHA");    // <- this one is probably used
@@ -283,11 +292,52 @@ impl<R:DBusResponder> DBusRequest<R>
 		try!(ctx.check_private_key().map_err(log_error));
 		try!(ctx.set_cipher_list(cipher).map_err(log_error));
 
-		let (plaintext_fd, plaintext_ch) = ChannelToSocket::new(AF_UNIX, SOCK_DGRAM, 0).unwrap();
-		try!(SslChannel::new(&ctx, is_server, ciphertext_ch, plaintext_ch).map_err(log_error));
+		let (my_plaintext_tx, your_plaintext_rx) = channel();
+		let (your_plaintext_tx, my_plaintext_rx) = channel();
+		let my_plaintext_ch = (my_plaintext_tx, my_plaintext_rx);
+		let your_plaintext_ch = (your_plaintext_tx, your_plaintext_rx);
+
+		let (ssl, ciphertext_fd) = try!(SslChannel::new(&ctx, is_server, ciphertext_ch, my_plaintext_ch).map_err(log_error));
 
 		info!("{} ssl_connect done", is_server);
-		Ok(plaintext_fd)
+
+		Ok(your_plaintext_ch)
+	}
+
+	fn create_fd(&self,
+	             dgram_ch: (Sender<Vec<u8>>, Receiver<Vec<u8>>),
+	             is_server: bool,
+	             is_stream: bool)
+		-> Result<RawFd,ConnectError>
+	{
+		let proto = 0;
+
+		let sock = if is_stream {
+			let (dgram_tx, dgram_rx) = dgram_ch;
+
+			let (my_stream_tx, your_stream_rx) = channel();
+			let (your_stream_tx, my_stream_rx) = channel();
+
+			let stream = PseudoTcpStream::new_from(dgram_tx, dgram_rx,
+			                                       my_stream_tx, my_stream_rx);
+
+			if !is_server {
+				stream.connect().unwrap(); // TODO: map error
+			}
+
+			// TODO: keep PseudoTcpStream alive?!
+			spawn(move || {
+				loop {}
+				drop(stream);
+			});
+	
+			let your_stream_ch = (your_stream_tx, your_stream_rx);
+			ChannelToSocket::new_from(AF_UNIX, SOCK_STREAM, proto, your_stream_ch).unwrap() // TODO: map error
+		} else {
+			ChannelToSocket::new_from(AF_UNIX, SOCK_DGRAM, proto, dgram_ch).unwrap() // TODO: map error
+		};
+
+		Ok(sock.as_raw_fd())
 	}
 }
 
@@ -380,13 +430,15 @@ mod tests {
 
 			if result.is_err() {
 				error!("{:?}", result);
+				error!("{:?}", result);
 				assert!(result.is_ok());
 			}
 
 			let fd = result.unwrap_or(-1);
 			debug!("fd1={:?}", fd);
+			let msg = vec![0x99; 100];
 			unsafe {
-				send(fd, vec![0u8; 1].as_ptr() as *const c_void, 100, 0);
+				send(fd, msg.as_ptr() as *const c_void, msg.len() as u64, 0);
 			}
 			let mut len;
 			loop {
@@ -422,8 +474,9 @@ mod tests {
 
 		let fd = result.unwrap_or(-1);
 		debug!("fd2={:?}", fd);
+		let msg = vec![0x99; 100];
 		unsafe {
-			send(fd, vec![0u8; 1].as_ptr() as *const c_void, 100, 0);
+			send(fd, msg.as_ptr() as *const c_void, msg.len() as u64, 0);
 		}
 		let mut len;
 		loop {

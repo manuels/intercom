@@ -1,47 +1,31 @@
 #!/usr/bin/env python
 
+import sys
+import dbus
 import socket
 
-import gobject
-gobject.threads_init()
-
-from dbus.glib import DBusGMainLoop
-DBusGMainLoop (set_as_default=True)
-loop = gobject.MainLoop()
-
-import sys
-
-from dbus import glib
-glib.init_threads()
-
-import dbus
-bus = dbus.SessionBus()
-
 dbus_path = sys.argv[1]
-pub_key = map(int, sys.argv[2].split(','))
+pub_key = sys.argv[2]
 
-introspect = False
-if introspect:
-	args = (2, pub_key, 99, 10)
-	remote_object = bus.get_object(dbus_path, "/org/manuel/Intercom", introspect=True)
-else:
-	args = (dbus.Int32(2), dbus.ByteArray("".join(map(chr, pub_key))), dbus.UInt32(99), dbus.UInt32(10))
-	remote_object = bus.get_object(dbus_path, "/org/manuel/Intercom", introspect=False)
+bus = dbus.SessionBus()
+intercom = bus.get_object(dbus_path, "/org/manuel/Intercom", introspect=False)
 
-def cb(fd):
-	sock = socket.fromfd(fd.take(), socket.AF_UNIX, socket.SOCK_DGRAM, 0)
+domain      = dbus.Int32(socket.SOCK_DGRAM)
+public_key  = dbus.ByteArray(pub_key)
+port        = dbus.UInt32(0)
+timeout_sec = dbus.UInt32(10)
 
-	for i in range(3):
-		sent = "".join(map(chr, pub_key))
-		sock.send(sent)
+result = intercom.connect(domain, public_key, port, timeout_sec, dbus_interface='org.manuel.Intercom')
 
-		recved = sock.recv(1024)
-		assert(sent != recved)
-		print "{} received {}!".format(sent, recved)
-	print "ALL DONE!"
-	loop.quit()
+fd   = result.take()
+sock = socket.fromfd(fd, socket.AF_UNIX, socket.SOCK_DGRAM, 0)
 
-func = remote_object.get_dbus_method('connect', dbus_interface='org.manuel.Intercom')
-func.call_async(*args, reply_handler=cb)
+for i in range(3):
+	sent = pub_key
+	sock.send(sent)
 
-loop.run()
+	recved = sock.recv(1024)
+	assert(sent != recved)
+	print "{} received {}!".format(sent, recved)
+
+print "ALL DONE!"

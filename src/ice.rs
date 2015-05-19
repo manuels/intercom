@@ -10,9 +10,9 @@ use nice::glib2::GMainLoop;
 use nice::bindings_agent::GMainContext;
 
 pub struct IceAgent {
-	agent: NiceAgent,
-	ctx:   *mut GMainContext,
-	stream: u32,
+	agent:    NiceAgent,
+	ctx:      *mut GMainContext,
+	stream:   u32,
 	state_rx: Receiver<libc::c_uint>,
 }
 
@@ -42,20 +42,25 @@ impl IceAgent {
 		})
 	}
 
-	pub fn get_local_credentials(&mut self) -> Vec<u8> {
-		self.agent.generate_local_sdp().into_bytes()
+	pub fn get_local_credentials(&mut self) -> Result<Vec<u8>,()> {
+		let cred = try!(self.agent.generate_local_sdp());
+		Ok(cred.into_bytes())
 	}
 
 	pub fn get_controlling_mode(&mut self) -> Result<bool,()> {
 		self.agent.get_controlling_mode()
 	}
 
-	pub fn stream_to_channel(&mut self, credentials: &Vec<u8>,
-		tx: Sender<Vec<u8>>, rx: Receiver<Vec<u8>>)
-			 -> Result<(), ()>
+	pub fn stream_to_channel(&mut self,
+		                     credentials: &Vec<u8>,
+	                         tx:          Sender<Vec<u8>>,
+	                         rx:          Receiver<Vec<u8>>)
+		-> Result<(), ()>
 	{
+		debug!("before {:?}", credentials);
 		let cred = String::from_utf8(credentials.clone()).unwrap_or("".to_string());
-		self.agent.stream_to_channel(self.ctx, self.stream, cred, &self.state_rx,
-			tx, rx)
+		debug!("after");
+		self.agent.stream_to_channel(self.ctx, self.stream,
+			cred, &self.state_rx, tx, rx)
 	}
 }

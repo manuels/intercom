@@ -22,7 +22,5 @@
 		<arg type="as" name="keywords" direction="in" />
 		<arg type="aay" name="nodes" direction="out" />
 	</method>
-
-
 </interface>
 </node>

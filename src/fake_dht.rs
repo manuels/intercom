@@ -50,6 +50,9 @@ impl ::DHT for FakeDHT {
 		debug!("get(): {:?}=len({:?})",
 			::std::str::from_utf8(&key[..]),
 			last_match.clone().map(|x| x.len()));
+		debug!("get(): {:?}={:?}",
+			::std::str::from_utf8(&key[..]),
+			last_match);
 
 		drop(lock);
 		match last_match {
@@ -67,6 +70,9 @@ impl ::DHT for FakeDHT {
 		debug!("put(): {:?}=len({:?})",
 			::std::str::from_utf8(&key[..]),
 			value.len());
+		debug!("put(): {:?}={:?}",
+			::std::str::from_utf8(&key[..]),
+			value);
 
 		file.write_u32::<LittleEndian>(key.len() as u32).unwrap();
 		file.write_all(&key[..]).unwrap();
@@ -90,7 +96,7 @@ mod test {
 		let mut dht = FakeDHT::new();
 		
 		let key = vec![3,2,1];
-		let value = vec![9,8,7,6];
+		let value = vec![9,8,0,7,6];
 
 		dht.put(&key, &value, Duration::minutes(10)).unwrap();
 

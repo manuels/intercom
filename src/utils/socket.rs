@@ -1,22 +1,25 @@
 use libc::types::os::arch::c95::{c_int,size_t};
 use libc::types::common::c95::c_void;
 use libc::funcs::bsd43::{send,recv};
-use std::io::{Error, ErrorKind};
+use std::io::{Error, Result, ErrorKind};
+use std::io::{Read,Write};
 use std::sync::mpsc::{Sender,Receiver};
 use std::sync::mpsc::channel;
 use std::vec::Vec;
 use std::thread;
-use std::os::unix::io::RawFd;
+use std::os::unix::io::{AsRawFd,RawFd};
 
 use syscalls;
 
-pub struct ChannelToSocket;
+pub struct ChannelToSocket {
+	fd: RawFd
+}
 
 impl ChannelToSocket {
 	pub fn new(domain: c_int,
 	           typ: c_int,
 	           protocol: c_int)
-		-> Result<(RawFd, (Sender<Vec<u8>>, Receiver<Vec<u8>>)), Error>
+		-> Result<(ChannelToSocket, (Sender<Vec<u8>>, Receiver<Vec<u8>>))>
 	{
 		let (tx_a, rx_a) = channel();
 		let (tx_b, rx_b) = channel();
@@ -29,7 +32,7 @@ impl ChannelToSocket {
 	                typ: c_int,
 	                protocol: c_int,
 	                ch: (Sender<Vec<u8>>,Receiver<Vec<u8>>))
-		-> Result<RawFd, Error>
+		-> Result<ChannelToSocket>
 	{
 		let (tx, rx) = ch;
 		let (my_fd, your_fd) = try!(syscalls::socketpair(domain, typ, protocol));
@@ -76,6 +79,53 @@ impl ChannelToSocket {
 			panic!("fin");
 		}).unwrap();
 
-		Ok(your_fd)
+		Ok(ChannelToSocket {fd: your_fd})
 	}
+}
+
+impl AsRawFd for ChannelToSocket {
+	fn as_raw_fd(&self) -> RawFd {
+		self.fd
+	}
+}
+
+impl Read for ChannelToSocket {
+	fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
+		let fd = self.as_raw_fd();
+		let len = unsafe {
+			recv(fd, buf.as_mut_ptr() as *mut c_void, buf.len() as u64, 0)
+		};
+
+		if len < 0 {
+			let err = Error::last_os_error();
+			const EAGAIN:i32 = 11;
+
+			if err.raw_os_error().unwrap() == EAGAIN {
+				Ok(0)
+			} else {
+				Err(err)
+			}
+		} else {
+			Ok(len as usize)
+		}
+	}
+}
+
+impl Write for ChannelToSocket {
+	fn write(&mut self, buf: &[u8]) -> Result<usize> {
+		let fd = self.as_raw_fd();
+		let len = unsafe {
+			send(fd, buf.as_ptr() as *const c_void, buf.len() as u64, 0)
+		};
+
+		if len < 0 {
+			Err(Error::last_os_error())
+		} else {
+			Ok(len as usize)
+		}
+	}
+
+    fn flush(&mut self) -> Result<()> {
+    	Ok(())
+    }
 }

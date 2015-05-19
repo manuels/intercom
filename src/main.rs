@@ -5,8 +5,10 @@ extern crate libc;
 extern crate nice;
 extern crate ecdh;
 extern crate openssl;
+extern crate nonblocking_socket;
 extern crate byteorder;
 extern crate env_logger;
+extern crate pseudotcp;
 
 use std::os::unix::io::RawFd;
 use std::thread;
@@ -67,7 +69,7 @@ trait DHT {
 }
 
 fn generate_cert(private_key: &PrivateKey) -> Result<X509,()> {
-	let mut buf = Cursor::new(vec![0u8; 4*1024]);
+	let mut buf = Cursor::new(vec![0u8; 16*1024]);
 
 	private_key.to_pem(&mut buf).unwrap();
 	buf.set_position(0);
@@ -115,8 +117,8 @@ fn main() {
 			}
 			let your_public_key = your_public_key.unwrap();
 
-			let my_hash   = my_public_key.to_vec() + &your_public_key.to_vec()[..];
-			let your_hash = your_public_key.to_vec() + &my_public_key.to_vec()[..];
+			let my_hash   = my_public_key.to_vec().into_iter().chain(your_public_key.to_vec().into_iter()).collect();
+			let your_hash = your_public_key.to_vec().into_iter().chain(my_public_key.to_vec().into_iter()).collect();
 
 			let shared_key = ECDH::compute_key(&my_private_key, &your_public_key).unwrap();
 
