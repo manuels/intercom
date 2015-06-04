@@ -4,13 +4,11 @@ use std::sync::mpsc::{Sender,Receiver};
 use std::sync::mpsc::channel;
 use std::thread;
 use libc::consts::os::bsd44::SOCK_DGRAM;
-use libc::consts::os::bsd44::AF_UNIX;
 
 use openssl::ssl::{SslStream, SslContext};
 use openssl::ssl::error::SslError;
 
 use std::os::unix::io::AsRawFd;
-use std::os::unix::io::RawFd;
 
 use utils::is_readable::IsReadable;
 use utils::socket::ChannelToSocket;

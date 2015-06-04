@@ -14,18 +14,11 @@ extern crate rustc_serialize;
 #[cfg(feature="dbus")]
 extern crate dbus;
 
-use std::os::unix::io::RawFd;
-use std::thread;
 use time::Duration;
 use std::env;
-use std::borrow::Borrow;
-use std::io::{Read,Cursor};
+use std::io::Read;
 
 use std::fs::File;
-
-use ecdh::public_key::PublicKey;
-use ecdh::ecdh::ECDH;
-use ecdh::private_key::PrivateKey;
 
 use openssl::crypto::pkey::PKey;
 use openssl::crypto::hash::Type::SHA256;
@@ -40,6 +33,7 @@ mod syscalls;
 mod ssl;
 mod intercom;
 mod connection;
+#[cfg(test)]
 mod tests;
 
 #[cfg(feature="dbus")]

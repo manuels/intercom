@@ -1,6 +1,7 @@
 extern crate env_logger;
 
 use std::thread::{spawn,sleep_ms};
+#[allow(unused_imports)]
 use libc::consts::os::bsd44::{SOCK_DGRAM, SOCK_STREAM};
 
 use dbus::Connection as DbusConnection;

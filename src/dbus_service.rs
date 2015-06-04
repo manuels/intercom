@@ -45,7 +45,7 @@ impl DBusService {
 	fn connect(intercom: &Intercom, msg: &mut Message)
 		-> Result<Vec<MessageItem>, (&'static str, String)>
 	{
-		let mut args = msg.get_items();
+		let args = msg.get_items();
 
 		let arg0 = args.get(0);
 		let arg1 = args.get(1);

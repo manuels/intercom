@@ -129,7 +129,7 @@ impl Connection {
 		let (your_plain_tx, my_plain_rx) = channel();
 		let my_plain_ch =  (my_plain_tx, my_plain_rx);
 		let your_plain_ch =  (your_plain_tx, your_plain_rx);
-
+		
 		let is_server = self.controlling_mode;
 		let ssl = try!(SslChannel::new(&ctx, is_server,
 			ciphertext_ch, my_plain_ch));

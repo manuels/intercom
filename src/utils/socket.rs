@@ -18,6 +18,7 @@ pub struct ChannelToSocket {
 }
 
 impl ChannelToSocket {
+	#[allow(dead_code)]
 	pub fn new(typ: c_int,
 	           protocol: c_int)
 		-> Result<(ChannelToSocket, (Sender<Vec<u8>>, Receiver<Vec<u8>>))>

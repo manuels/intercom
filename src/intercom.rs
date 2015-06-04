@@ -1,6 +1,5 @@
 use std::io::{Cursor,Write};
 use std::os::unix::io::RawFd;
-use std::borrow::Cow;
 
 use rustc_serialize::hex::{ToHex,FromHex};
 
@@ -11,8 +10,6 @@ use openssl::crypto::hmac;
 use openssl::ssl::error::SslError;
 use openssl::crypto::pkey::{PKey,Parts};
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
-use nice::NiceAgent;
-use nice::glib2::GMainLoop;
 use time;
 use time::Duration;
 use ecdh;
@@ -113,12 +110,12 @@ impl Intercom {
 
 		let retry_time = Duration::seconds(5);
 		let result = retry(timeout, retry_time, || {
-			debug!("retry");
+			debug!("retrying");
 			let remote_credentials = try!(self.get_remote_credentials(&shared_secret,
 				app_id.clone(), &remote_public_key));
 
 			let fd = try!(conn.establish_connection(remote_credentials));
-			Ok(0)
+			Ok(fd)
 		});
 
 		ignore(self.unpublish_credentials(dht_key, dht_value));
