@@ -16,10 +16,10 @@ intercom = bus.get_object(dbus_path, "/org/manuel/Intercom", introspect=False)
 
 domain      = dbus.Int32(socket.SOCK_DGRAM)
 public_key  = dbus.ByteArray(pub_key)
-port        = dbus.UInt32(23)
-timeout_sec = dbus.UInt32(10)
+app_id      = dbus.ByteArray("cat")
+timeout_sec = dbus.UInt32(60)
 
-result = intercom.connect(domain, public_key, port, timeout_sec, dbus_interface='org.manuel.Intercom')
+result = intercom.connect(domain, public_key, app_id, timeout_sec, dbus_interface='org.manuel.Intercom')
 fd     = result.take()
 sock   = socket.fromfd(fd, socket.AF_UNIX, socket.SOCK_DGRAM, 0)
 
