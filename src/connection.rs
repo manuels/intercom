@@ -4,7 +4,7 @@ use std::sync::mpsc::{channel,Sender,Receiver};
 use std::os::unix::io::{RawFd,AsRawFd};
 
 use libc::consts::os::bsd44::{SOCK_DGRAM, SOCK_STREAM};
-use openssl::x509::X509StoreContext;
+use openssl::x509::{X509, X509StoreContext};
 use openssl::crypto::pkey::PKey;
 use openssl::ssl::{SslContext, SslMethod};
 use openssl::ssl::error::SslError;
@@ -33,7 +33,7 @@ pub struct Connection {
 
 impl Connection {
 	pub fn new(socket_type: i32, local_private_key: PKey, remote_public_key: PKey,
-	           port: u32, controlling_mode: bool)
+	           controlling_mode: bool)
 		-> Result<Connection, ConnectError>
 	{
 		let agent = try!(IceAgent::new(controlling_mode)
@@ -137,7 +137,6 @@ impl Connection {
 		Ok(your_plain_ch)
 	}
 
-	#[allow(unused_variables)]
 	fn verify_cert(preverify_ok: bool, x509_ctx: &X509StoreContext,
 		           expected_key: &Arc<PKey>) -> bool
 	{

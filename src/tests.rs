@@ -32,12 +32,14 @@ fn test_intercom() {
 	let public_key2 = "3033303036333243363341373741303742434442384241434644423931313646303544334546364233394232393532414230434530393730343631383741424339333837394137423938333539443439394345304441323736454430454638423845303330333034444436433038413531434438384441344345374145433033393241424439";
 
 	let sock_type = SOCK_DGRAM;
+	let app_id = "test";
+
 	spawn(move || {
 		let conn = DbusConnection::get_private(BusType::Session).unwrap();
 		let mut msg = Message::new_method_call("org.manuel.TestIntercom1", "/",
 		                                       "org.manuel.Intercom", "Connect").unwrap();
 		msg.append_items(&[MessageItem::Int32(sock_type), MessageItem::Str(public_key2.to_string()),
-		                   MessageItem::UInt32(1), MessageItem::UInt32(2*60)]);
+		                   MessageItem::Str(app_id.to_string()), MessageItem::UInt32(2*60)]);
 		let _ = conn.send_with_reply_and_block(msg, 2*60*1000).unwrap();
 	});
 
@@ -45,6 +47,6 @@ fn test_intercom() {
 	let mut msg = Message::new_method_call("org.manuel.TestIntercom2", "/",
 	                                       "org.manuel.Intercom", "Connect").unwrap();
 	msg.append_items(&[MessageItem::Int32(sock_type), MessageItem::Str(public_key1.to_string()),
-	                   MessageItem::UInt32(1), MessageItem::UInt32(2*60)]);
+	                   MessageItem::Str(app_id.to_string()), MessageItem::UInt32(2*60)]);
 	let _ = conn.send_with_reply_and_block(msg, 2*60*1000).unwrap();
 }

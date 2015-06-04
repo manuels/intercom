@@ -22,7 +22,7 @@ impl DBusService {
 			vec![Method::new("Connect",
 				vec![Argument::new("socket_type", "i"),
 				     Argument::new("remote_public_key", "s"),
-				     Argument::new("port", "u"),
+				     Argument::new("app_id", "s"),
 				     Argument::new("timeout_sec", "u"),
 				],
 				vec![Argument::new("fd", "h")],
@@ -56,12 +56,12 @@ impl DBusService {
 		match (arg0, arg1, arg2, arg3) {
 			(Some(&MessageItem::Int32(socket_type)),
 			 Some(&MessageItem::Str(ref remote_public_key)),
-			 Some(&MessageItem::UInt32(port)),
+			 Some(&MessageItem::Str(ref app_id)),
 			 Some(&MessageItem::UInt32(timeout_sec))) =>
 			{
 				let timeout = Duration::seconds(timeout_sec as i64);
 				let fd = try!(intercom.connect(socket_type, remote_public_key.clone(),
-				                               port, timeout)
+				                               app_id.clone(), timeout)
 				              .map_err(|e| ("org.manuel.Intercom.InternalError", format!("{:?}", e))));
 
 				let result = vec![MessageItem::UnixFd(OwnedFd::new(fd))];

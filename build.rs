@@ -15,14 +15,4 @@ fn main() {
 			.include(&libglib.include_paths[0])
 			.include(&libglib.include_paths[1])
 		.compile("libnetwork.a");
-
-	gcc::Config::new()
-			.file("src/intercom-dbus-bindings.c")
-			.include(&libgio.include_paths[0])
-			.include(&libgio.include_paths[1])
-			.include(&libgiounix.include_paths[0])
-			.include(&libgiounix.include_paths[1])
-			.include(&libglib.include_paths[0])
-			.include(&libglib.include_paths[1])
-		.compile("libintercom-dbus.a");
 }

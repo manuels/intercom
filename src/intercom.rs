@@ -85,7 +85,7 @@ impl Intercom {
 	}
 
 	pub fn connect(&self, socket_type: i32, remote_public_key: String, 
-	               port: u32,  timeout: Duration)
+	               app_id: String,  timeout: Duration)
 		-> Result<RawFd, ConnectError>
 	{
 		let remote_public_key_orig = remote_public_key.clone();
@@ -101,7 +101,7 @@ impl Intercom {
 		let private_key = convert_private_key(&self.local_private_key).unwrap();
 		let public_key = convert_public_key(&remote_public_key);
 		let mut conn = Connection::new(socket_type, private_key, public_key,
-			                            port, controlling_mode).unwrap();
+			                           controlling_mode).unwrap();
 /*		let mut conn = try!(Connection::new(socket_type, private_key, public_key,
 			                            port, controlling_mode));*/
 
@@ -109,14 +109,16 @@ impl Intercom {
 		let local_credentials = conn.get_local_credentials();
 		debug!("publishing");
 		let (dht_key, dht_value) = try!(Self::publish_credentials(&shared_secret,
-				&self.local_private_key, &remote_public_key, local_credentials));
+				app_id.clone(), &self.local_private_key, &remote_public_key,
+				local_credentials));
 		debug!("published");
 		// }
 
 		let retry_time = Duration::seconds(5);
 		let result = retry(timeout, retry_time, || {
 			debug!("retry");
-			let remote_credentials = try!(self.get_remote_credentials(&shared_secret, &remote_public_key));
+			let remote_credentials = try!(self.get_remote_credentials(&shared_secret,
+				app_id.clone(), &remote_public_key));
 
 			let fd = try!(conn.establish_connection(remote_credentials));
 			Ok(0)
@@ -127,13 +129,16 @@ impl Intercom {
 		result
 	}
 
-	fn get_remote_credentials(&self, shared_secret: &SharedSecret,
+	fn get_remote_credentials(&self,
+	                          shared_secret:     &SharedSecret, 
+	                          app_id:            String,
 	                          remote_public_key: &ecdh::PublicKey)
 		-> Result<Vec<u8>,ConnectError>
 	{
 		let local_public_key = self.local_private_key.get_public_key();
 		let key:Vec<u8> = remote_public_key.to_vec().into_iter()
 			.chain(local_public_key.to_vec().into_iter())
+			.chain(app_id.into_bytes().into_iter())
 			.collect();
 
 		let conn = DbusConnection::get_private(BusType::Session).unwrap();
@@ -189,7 +194,8 @@ impl Intercom {
 		}
 	}
 
-	fn publish_credentials(shared_secret: &SharedSecret,
+	fn publish_credentials(shared_secret:     &SharedSecret,
+	                       app_id:            String,
 	                       local_private_key: &ecdh::PrivateKey,
 	                       remote_public_key: &ecdh::PublicKey,
 	                       local_credentials: Vec<u8>)
@@ -198,6 +204,7 @@ impl Intercom {
 		let local_public_key = local_private_key.get_public_key();
 		let key:Vec<u8> = local_public_key.to_vec().into_iter()
 			.chain(remote_public_key.to_vec().into_iter())
+			.chain(app_id.into_bytes().into_iter())
 			.collect();
 
 		let mut plaintext_value = Cursor::new(vec![]);
