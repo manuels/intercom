@@ -2,7 +2,6 @@
 name = "intercom"
 version = "0.0.1"
 authors = ["Manuel Schölling <manuel.schoelling@gmx.de>"]
-build = "build.rs"
 
 [features]
 default = ["dbus_service"]

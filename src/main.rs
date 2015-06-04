@@ -27,7 +27,6 @@ use openssl::x509::{X509,X509Generator,KeyUsage,ExtKeyUsage};
 #[cfg(feature="dbus")]
 mod dbus_service;
 mod ice;
-mod bindings_lunadht;
 mod utils;
 mod syscalls;
 mod ssl;
