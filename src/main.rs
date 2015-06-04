@@ -9,18 +9,20 @@ extern crate nonblocking_socket;
 extern crate byteorder;
 extern crate env_logger;
 extern crate pseudotcp;
+extern crate rustc_serialize;
+
+#[cfg(feature="dbus")]
+extern crate dbus;
 
 use std::os::unix::io::RawFd;
 use std::thread;
 use time::Duration;
 use std::env;
 use std::borrow::Borrow;
-use std::io::Cursor;
+use std::io::{Read,Cursor};
 
 use std::fs::File;
 
-use dbus_service::DBusService;
-use fake_dht::FakeDHT;
 use ecdh::public_key::PublicKey;
 use ecdh::ecdh::ECDH;
 use ecdh::private_key::PrivateKey;
@@ -30,51 +32,33 @@ use openssl::crypto::hash::Type::SHA256;
 use openssl::x509::{X509,X509Generator,KeyUsage,ExtKeyUsage};
 
 mod dht;
-//mod dgram_unix_socket;
+#[cfg(feature="dbus")]
 mod dbus_service;
 mod dbus_request;
 mod ice;
 mod bindings_lunadht;
 mod bindings_glib;
-mod bindings_intercom_dbus;
 mod glib;
-mod fake_dht;
 mod utils;
 mod syscalls;
 mod ssl;
+mod intercom;
+mod connection;
+mod tests;
 
-#[derive(Debug)]
-pub enum ConnectError {
-	InvalidRequest,
-	RemoteCredentialsNotFound,
-	IceConnectFailed,
-	SslError(openssl::ssl::error::SslError),
-	FOO,
-}
+#[cfg(feature="dbus")]
+use dbus_service::DBusService;
+#[cfg(feature="dbus")]
+use dbus::BusType;
 
-pub trait DBusResponder {
-	fn respond(&self, result: Result<RawFd,ConnectError>) -> Result<(),()> {
-		match result {
-			Ok(fd) => self.respond_ok(fd),
-			Err(e) => self.respond_error(e),
-		}
-	}
-	fn respond_ok(&self, fd: RawFd) -> Result<(),()>;
-	fn respond_error(&self, err: ConnectError) -> Result<(),()>;
-}
+use intercom::Intercom;
 
 trait DHT {
-	fn get(&self, key: &Vec<u8>) -> Result<Vec<Vec<u8>>,()>;
-	fn put(&mut self, key: &Vec<u8>, value: &Vec<u8>, ttl: Duration) ->  Result<(),()>;
+       fn get(&self, key: &Vec<u8>) -> Result<Vec<Vec<u8>>,()>;
+       fn put(&mut self, key: &Vec<u8>, value: &Vec<u8>, ttl: Duration) ->  Result<(),()>;
 }
 
-fn generate_cert(private_key: &PrivateKey) -> Result<X509,()> {
-	let mut buf = Cursor::new(vec![0u8; 16*1024]);
-
-	private_key.to_pem(&mut buf).unwrap();
-	buf.set_position(0);
-	let pkey = try!(PKey::private_key_from_pem(&mut buf).map_err(|_| ()));
-
+fn generate_cert(private_key: &PKey) -> Result<X509,()> {
 	let gen = X509Generator::new()
 		.set_valid_period(365*2)
 		//.set_CN("test_me")
@@ -82,7 +66,7 @@ fn generate_cert(private_key: &PrivateKey) -> Result<X509,()> {
 		.set_usage(&[KeyUsage::KeyAgreement])
 		.set_ext_usage(&[ExtKeyUsage::ClientAuth, ExtKeyUsage::ServerAuth]);
 
-	let cert = try!(gen.sign(&pkey).map_err(|_| ()));
+	let cert = try!(gen.sign(&private_key).map_err(|_| ()));
 
 	let mut file = File::create("/tmp/foo.txt").unwrap();
 	cert.write_pem(&mut file).unwrap();
@@ -90,50 +74,22 @@ fn generate_cert(private_key: &PrivateKey) -> Result<X509,()> {
 	Ok(cert)
 }
 
+
 fn main() {
 	env_logger::init().unwrap();
 
-	let mut args = env::args();
+	start_intercom(env::args());
+}
+
+fn start_intercom<I:Iterator<Item=String>>(mut args: I) {
 	args.next();
 	let dbus_path = args.next().unwrap();
-	let local_private_key = args.next().unwrap().into_bytes();
+	let local_private_key = args.next().unwrap();
 
-        info!("dbus service: {}", dbus_path);
-	let dbus_service = DBusService::new(dbus_path.borrow());
-        info!("dbus service done");
+	let mut file = File::open(local_private_key).unwrap();
+	let mut local_private_key = String::new();
+	file.read_to_string(&mut local_private_key).unwrap();
 
-	for request in dbus_service {
-		let my_private_key = local_private_key.clone();
-		let your_public_key = PublicKey::from_vec(&request.remote_public_key.clone());
-
-		thread::spawn(move || {
-			let my_private_key = PrivateKey::from_vec(&my_private_key).unwrap();
-
-			let my_public_key   = my_private_key.get_public_key();
-			
-			if your_public_key.is_err() {
-				request.invocation.respond(Err(ConnectError::InvalidRequest)).unwrap();
-				return
-			}
-			let your_public_key = your_public_key.unwrap();
-
-			let my_hash   = my_public_key.to_vec().into_iter().chain(your_public_key.to_vec().into_iter()).collect();
-			let your_hash = your_public_key.to_vec().into_iter().chain(my_public_key.to_vec().into_iter()).collect();
-
-			let shared_key = ECDH::compute_key(&my_private_key, &your_public_key).unwrap();
-
-			let cert = generate_cert(&my_private_key).unwrap();
-
-			let mut dht = FakeDHT::new();
-			let result = request.handle(&my_private_key,
-			                            &your_public_key,
-			                            &shared_key.to_vec(),
-			                            &my_hash,
-			                            &your_hash,
-			                            &cert,
-			                            &mut dht);
-			debug!("hanled: {:?}", result);
-			request.invocation.respond(result).unwrap();
-		});
-	}
+	let intercom = Intercom::new(&local_private_key.into_bytes()).unwrap();
+	DBusService::serve(intercom, &dbus_path[..], BusType::Session);
 }

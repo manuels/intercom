@@ -4,6 +4,10 @@ version = "0.0.1"
 authors = ["Manuel Schölling <manuel.schoelling@gmx.de>"]
 build = "build.rs"
 
+[features]
+default = ["dbus_service"]
+"dbus_service" = ["dbus"]
+
 [dependencies]
 time = "*"
 byteorder = "*"
@@ -11,10 +15,15 @@ log = "0.3.1"
 bitflags = "0.1.1"
 libc = "*"
 env_logger = "*"
+rustc-serialize = "*"
 
 [build-dependencies]
 gcc = "*"
 pkg-config = "*"
+
+[dependencies.dbus]
+version = "*"
+optional = true
 
 [dependencies.ecdh]
 #git = "https://github.com/manuels/ecdh.rs.git"

@@ -1,4 +1,4 @@
-extern crate time;
+/*extern crate time;
 extern crate pseudotcp;
 
 use libc::{c_void};
@@ -29,7 +29,7 @@ use openssl::ssl;
 use openssl::ssl::error::SslError;
 
 use ::DHT as DHT_pull_in_scope;
-use ::ConnectError;
+use intercom::ConnectError;
 use ::DBusResponder;
 
 use pseudotcp::PseudoTcpStream;
@@ -498,3 +498,4 @@ mod tests {
 		thread.join().unwrap();
 	}
 }
+*/

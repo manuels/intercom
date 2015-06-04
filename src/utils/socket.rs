@@ -9,6 +9,8 @@ use std::vec::Vec;
 use std::thread;
 use std::os::unix::io::{AsRawFd,RawFd};
 
+use libc::consts::os::bsd44::AF_UNIX;
+
 use syscalls;
 
 pub struct ChannelToSocket {
@@ -16,28 +18,29 @@ pub struct ChannelToSocket {
 }
 
 impl ChannelToSocket {
-	pub fn new(domain: c_int,
-	           typ: c_int,
+	pub fn new(typ: c_int,
 	           protocol: c_int)
 		-> Result<(ChannelToSocket, (Sender<Vec<u8>>, Receiver<Vec<u8>>))>
 	{
 		let (tx_a, rx_a) = channel();
 		let (tx_b, rx_b) = channel();
-		let fd = try!(ChannelToSocket::new_from(domain, typ, protocol, (tx_a, rx_b)));
+		let fd = try!(ChannelToSocket::new_from(typ, protocol, (tx_a, rx_b)));
 
 		Ok((fd, (tx_b, rx_a)))
 	}
 
-	pub fn new_from(domain: c_int,
-	                typ: c_int,
+	pub fn new_from(typ: c_int,
 	                protocol: c_int,
 	                ch: (Sender<Vec<u8>>,Receiver<Vec<u8>>))
 		-> Result<ChannelToSocket>
 	{
+		let domain = AF_UNIX;
+
 		let (tx, rx) = ch;
 		let (my_fd, your_fd) = try!(syscalls::socketpair(domain, typ, protocol));
 
-		let fd_read = my_fd;
+		let fd_other = your_fd;
+		let fd_read  = my_fd;
 		let fd_write = my_fd;
 
 		thread::Builder::new().name("ChannelToSocket::new_from recv".to_string()).spawn(move || {
@@ -52,7 +55,10 @@ impl ChannelToSocket {
 
 				if len > 0 {
 					buf.truncate(len as usize);
-					tx.send(buf).unwrap();
+					
+					if tx.send(buf).is_err() {
+						error!("Could not forward data from fd={} to fd={}", fd_read, fd_other);
+					}
 				} else {
 					panic!(Error::last_os_error());
 				}

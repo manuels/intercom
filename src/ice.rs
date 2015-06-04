@@ -7,7 +7,7 @@ use libc;
 
 use nice::agent::NiceAgent;
 use nice::glib2::GMainLoop;
-use nice::bindings_agent::GMainContext;
+use nice::glib2::bindings::GMainContext;
 
 pub struct IceAgent {
 	agent:    NiceAgent,
@@ -23,7 +23,7 @@ impl IceAgent {
 	pub fn new(controlling_mode: bool) -> Result<IceAgent,()>
 	{
 		let mainloop  = GMainLoop::new();
-		let ctx       = mainloop.get_context() as *mut GMainContext;
+		let ctx       = mainloop.get_context();
 		let mut agent = try!(NiceAgent::new(ctx, controlling_mode));
 
 		let (stream, state_rx) = try!(agent.add_stream(Some("intercom")));
@@ -57,10 +57,16 @@ impl IceAgent {
 	                         rx:          Receiver<Vec<u8>>)
 		-> Result<(), ()>
 	{
-		debug!("before {:?}", credentials);
-		let cred = String::from_utf8(credentials.clone()).unwrap_or("".to_string());
-		debug!("after");
-		self.agent.stream_to_channel(self.ctx, self.stream,
-			cred, &self.state_rx, tx, rx)
+		match String::from_utf8(credentials.clone()) {
+			Ok(cred) => {
+				debug!("remote credentials {:?}", cred);
+				self.agent.stream_to_channel(self.ctx, self.stream,
+				                             cred, &self.state_rx, tx, rx)
+			},
+			Err(_) => {
+				info!("Invalid remote credentials!");
+				Err(())
+			},
+		}
 	}
 }

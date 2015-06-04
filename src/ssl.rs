@@ -29,15 +29,15 @@ impl SslChannel
 	pub fn new(ctx: &SslContext, is_server: bool,
 	           ciphertext_ch: (Sender<Vec<u8>>,Receiver<Vec<u8>>),
 	           plaintext_ch:  (Sender<Vec<u8>>,Receiver<Vec<u8>>))
-		-> Result<(SslChannel, RawFd),SslError>
+		-> Result<SslChannel,SslError>
 	{
 		let (ciphertext_tx, ciphertext_rx) = ciphertext_ch;
 		let (ciphertext_rx, is_readable) = IsReadable::new(ciphertext_rx);
 		
-		let ciphertext = ChannelToSocket::new_from(AF_UNIX, SOCK_DGRAM, 0, 
+		let ciphertext = ChannelToSocket::new_from(SOCK_DGRAM, 0, 
 			(ciphertext_tx, ciphertext_rx)).unwrap();
 
-		let (plaintext_tx,  plaintext_rx)  = plaintext_ch;
+		let (plaintext_tx,  plaintext_rx) = plaintext_ch;
 
 		debug!("{} SSL pre handshake 1/2", is_server);
 
@@ -45,7 +45,7 @@ impl SslChannel
 		let ciphertext_rw = NonBlockingSocket::new(ciphertext);
 
 		let stream = match is_server {
-			true => try!(SslStream::new_server(ctx, ciphertext_rw)),
+			true  => try!(SslStream::new_server(ctx, ciphertext_rw)),
 			false => try!(SslStream::new(ctx, ciphertext_rw)),
 		};
 
@@ -61,7 +61,7 @@ impl SslChannel
 		channel.spawn_read(plaintext_tx, is_readable);
 		channel.spawn_write(plaintext_rx);
 
-		Ok((channel, ciphertext_fd))
+		Ok(channel)
 	}
 
 	fn spawn_write(&self,
