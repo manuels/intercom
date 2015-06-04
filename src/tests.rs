@@ -7,7 +7,6 @@ use dbus::Connection as DbusConnection;
 use dbus::{Message,MessageItem,BusType};
 
 use ::start_intercom;
-use utils::convert_dbus_item::ConvertDbusItem;
 
 #[test]
 fn test_intercom() {
@@ -39,7 +38,7 @@ fn test_intercom() {
 		                                       "org.manuel.Intercom", "Connect").unwrap();
 		msg.append_items(&[MessageItem::Int32(sock_type), MessageItem::Str(public_key2.to_string()),
 		                   MessageItem::UInt32(1), MessageItem::UInt32(2*60)]);
-		let mut reply = conn.send_with_reply_and_block(msg, 2*60*1000).unwrap();
+		let _ = conn.send_with_reply_and_block(msg, 2*60*1000).unwrap();
 	});
 
 	let conn = DbusConnection::get_private(BusType::Session).unwrap();
@@ -47,5 +46,5 @@ fn test_intercom() {
 	                                       "org.manuel.Intercom", "Connect").unwrap();
 	msg.append_items(&[MessageItem::Int32(sock_type), MessageItem::Str(public_key1.to_string()),
 	                   MessageItem::UInt32(1), MessageItem::UInt32(2*60)]);
-	let mut reply = conn.send_with_reply_and_block(msg, 2*60*1000).unwrap();
+	let _ = conn.send_with_reply_and_block(msg, 2*60*1000).unwrap();
 }

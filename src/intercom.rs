@@ -1,4 +1,3 @@
-use std::thread::spawn;
 use std::io::{Cursor,Write};
 use std::os::unix::io::RawFd;
 use std::borrow::Cow;
@@ -24,6 +23,7 @@ use dbus::Connection as DbusConnection;
 use utils::convert_dbus_item::ConvertDbusItem;
 use connection::Connection;
 use utils::retry::retry;
+use utils::ignore;
 
 const TIME_LEN: usize = 64/8;
 
@@ -122,7 +122,7 @@ impl Intercom {
 			Ok(0)
 		});
 
-		self.unpublish_credentials(dht_key, dht_value);
+		ignore(self.unpublish_credentials(dht_key, dht_value));
 
 		result
 	}
@@ -203,7 +203,7 @@ impl Intercom {
 		let mut plaintext_value = Cursor::new(vec![]);
 		let now = time::now_utc().to_timespec();
 		plaintext_value.write_i64::<LittleEndian>(now.sec).unwrap();
-		plaintext_value.write(&local_credentials[..]);
+		plaintext_value.write(&local_credentials[..]).unwrap();
 
 		let ciphertext_value = shared_secret.encrypt_then_mac(plaintext_value.get_ref());
 
