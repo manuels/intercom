@@ -102,6 +102,7 @@ impl Connection {
 				let (plaintext_tx, plaintext_rx) = plaintext_ch;
 				let stream = PseudoTcpStream::new_from(plaintext_tx, plaintext_rx,
 					stream_tx, stream_rx);
+				drop(stream);
 
 				let sock = ChannelToSocket::new_from(SOCK_STREAM, proto, socket_ch).unwrap();
 				sock.as_raw_fd()
@@ -129,10 +130,11 @@ impl Connection {
 		let (your_plain_tx, my_plain_rx) = channel();
 		let my_plain_ch =  (my_plain_tx, my_plain_rx);
 		let your_plain_ch =  (your_plain_tx, your_plain_rx);
-		
+
 		let is_server = self.controlling_mode;
 		let ssl = try!(SslChannel::new(&ctx, is_server,
 			ciphertext_ch, my_plain_ch));
+		drop(ssl);
 
 		Ok(your_plain_ch)
 	}

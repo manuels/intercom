@@ -31,11 +31,9 @@ const BULLETIN_BOARD_ID: &'static str = "intercom_v1";
 
 #[derive(Debug)]
 pub enum ConnectError {
-	InvalidRequest,
 	RemoteCredentialsNotFound,
 	IceConnectFailed,
 	SslError(SslError),
-	Timeout,
 	DHTError,
 	Internal(&'static str),
 	FOO,

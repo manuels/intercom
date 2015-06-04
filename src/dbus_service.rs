@@ -67,7 +67,6 @@ impl DBusService {
 				Ok(result)
 			},
 	 		_ => {
-				let err = format!("{}.InternalError", INTERFACE);
 				let err = "org.manuel.Intercom.InternalError";
 				Err((&err[..], "Internal error while parsing the arguments.".to_string()))
 			},

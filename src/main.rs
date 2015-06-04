@@ -14,8 +14,9 @@ extern crate rustc_serialize;
 #[cfg(feature="dbus")]
 extern crate dbus;
 
-use time::Duration;
+#[cfg(not(test))]
 use std::env;
+use time::Duration;
 use std::io::Read;
 
 use std::fs::File;
@@ -63,7 +64,7 @@ fn generate_cert(private_key: &PKey) -> Result<X509,()> {
 	Ok(cert)
 }
 
-
+#[cfg(not(test))]
 fn main() {
 	env_logger::init().unwrap();
 
