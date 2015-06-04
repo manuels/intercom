@@ -31,13 +31,10 @@ use openssl::crypto::pkey::PKey;
 use openssl::crypto::hash::Type::SHA256;
 use openssl::x509::{X509,X509Generator,KeyUsage,ExtKeyUsage};
 
-mod dht;
 #[cfg(feature="dbus")]
 mod dbus_service;
 mod ice;
 mod bindings_lunadht;
-mod bindings_glib;
-mod glib;
 mod utils;
 mod syscalls;
 mod ssl;
@@ -90,5 +87,5 @@ fn start_intercom<I:Iterator<Item=String>>(mut args: I) {
 	file.read_to_string(&mut local_private_key).unwrap();
 
 	let intercom = Intercom::new(&local_private_key.into_bytes()).unwrap();
-	DBusService::serve(intercom, &dbus_path[..], BusType::Session);
+	DBusService::serve(intercom, &dbus_path[..], BusType::Session).unwrap();
 }

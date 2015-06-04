@@ -88,7 +88,6 @@ impl Intercom {
 	               app_id: String,  timeout: Duration)
 		-> Result<RawFd, ConnectError>
 	{
-		let remote_public_key_orig = remote_public_key.clone();
 		debug!("remote_public_key[..].from_hex()={:?}",remote_public_key[..].from_hex());
 		let remote_public_key = remote_public_key[..].from_hex().unwrap();
 		let remote_public_key = ecdh::PublicKey::from_vec(&remote_public_key).unwrap();
@@ -100,10 +99,8 @@ impl Intercom {
 
 		let private_key = convert_private_key(&self.local_private_key).unwrap();
 		let public_key = convert_public_key(&remote_public_key);
-		let mut conn = Connection::new(socket_type, private_key, public_key,
-			                           controlling_mode).unwrap();
-/*		let mut conn = try!(Connection::new(socket_type, private_key, public_key,
-			                            port, controlling_mode));*/
+		let mut conn = try!(Connection::new(socket_type, private_key, public_key,
+			                           controlling_mode));
 
 		// TODO: async {
 		let local_credentials = conn.get_local_credentials();

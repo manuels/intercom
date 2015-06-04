@@ -4,7 +4,6 @@ use dbus::{BusType,NameFlag,Connection,ConnectionItem,OwnedFd,MessageItem,Error,
 use dbus::obj::{Method,ObjectPath,Argument,Interface};
 
 use intercom::Intercom;
-use intercom::ConnectError;
 
 const INTERFACE:&'static str = "org.manuel.Intercom";
 
