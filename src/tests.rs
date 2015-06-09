@@ -2,7 +2,10 @@ extern crate env_logger;
 
 use std::thread::{spawn,sleep_ms};
 #[allow(unused_imports)]
+
 use libc::consts::os::bsd44::{SOCK_DGRAM, SOCK_STREAM};
+use libc::funcs::bsd43::{send,recv};
+use libc::{ssize_t,size_t,c_void};
 
 use dbus::Connection as DbusConnection;
 use dbus::{Message,MessageItem,BusType};
@@ -41,7 +44,21 @@ fn test_intercom() {
 		                                       "org.manuel.Intercom", "Connect").unwrap();
 		msg.append_items(&[MessageItem::Int32(sock_type), MessageItem::Str(public_key2.to_string()),
 		                   MessageItem::Str(app_id.to_string()), MessageItem::UInt32(2*60)]);
-		let _ = conn.send_with_reply_and_block(msg, 2*60*1000).unwrap();
+		let mut reply = conn.send_with_reply_and_block(msg, 2*60*1000).unwrap();
+		match reply.get_items().pop().unwrap() {
+			MessageItem::UnixFd(fd) => {
+				let fd = fd.into_fd();
+
+				let buf = "foo".as_bytes();
+
+				let len = unsafe {
+					send(fd, buf.as_ptr() as *const c_void, buf.len() as size_t, 0)
+				};
+				assert_eq!(buf.len(), len as usize);
+			},
+			_ => assert!(false),
+		}
+
 	});
 
 	let conn = DbusConnection::get_private(BusType::Session).unwrap();
@@ -49,5 +66,20 @@ fn test_intercom() {
 	                                       "org.manuel.Intercom", "Connect").unwrap();
 	msg.append_items(&[MessageItem::Int32(sock_type), MessageItem::Str(public_key1.to_string()),
 	                   MessageItem::Str(app_id.to_string()), MessageItem::UInt32(2*60)]);
-	let _ = conn.send_with_reply_and_block(msg, 2*60*1000).unwrap();
+	let mut reply = conn.send_with_reply_and_block(msg, 2*60*1000).unwrap();
+	match reply.get_items().pop().unwrap() {
+		MessageItem::UnixFd(fd) => {
+			let fd = fd.into_fd();
+
+			let mut buf = vec![0; 128];
+			let len = unsafe {
+				recv(fd, buf.as_mut_ptr() as *mut c_void, buf.len() as size_t, 0)
+			};
+			buf.truncate(len as usize);
+
+			debug!("Received {:?}", buf);
+			assert_eq!(buf, "foo".as_bytes());
+		},
+		_ => assert!(false),
+	}
 }
