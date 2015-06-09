@@ -97,12 +97,14 @@ impl Intercom {
 		let mut conn = try!(Connection::new(socket_type, private_key, public_key,
 			                           controlling_mode));
 
+		let dht_key = Self::generate_dht_key(app_id.clone(),
+		                            &self.local_private_key, &remote_public_key);
+		self.unpublish_credentials(dht_key.clone());
+
 		// TODO: async {
 		let local_credentials = conn.get_local_credentials();
-		debug!("publishing");
-		let (dht_key, dht_value) = try!(Self::publish_credentials(&shared_secret,
-				app_id.clone(), &self.local_private_key, &remote_public_key,
-				local_credentials));
+		debug!("publishing {:?}", String::from_utf8(local_credentials.clone()));
+		let dht_value = try!(Self::publish_credentials(dht_key.clone(), &shared_secret, local_credentials));
 		debug!("published");
 		// }
 
@@ -116,7 +118,7 @@ impl Intercom {
 			Ok(fd)
 		});
 
-		ignore(self.unpublish_credentials(dht_key, dht_value));
+		self.unpublish_credentials(dht_key);
 
 		result
 	}
@@ -186,12 +188,10 @@ impl Intercom {
 		}
 	}
 
-	fn publish_credentials(shared_secret:     &SharedSecret,
-	                       app_id:            String,
-	                       local_private_key: &ecdh::PrivateKey,
-	                       remote_public_key: &ecdh::PublicKey,
-	                       local_credentials: Vec<u8>)
-		-> Result<(Vec<u8>,Vec<u8>),ConnectError>
+	fn generate_dht_key(app_id:            String,
+	                    local_private_key: &ecdh::PrivateKey,
+	                    remote_public_key: &ecdh::PublicKey)
+		-> Vec<u8>
 	{
 		let local_public_key = local_private_key.get_public_key();
 		let key:Vec<u8> = local_public_key.to_vec().into_iter()
@@ -199,6 +199,14 @@ impl Intercom {
 			.chain(app_id.into_bytes().into_iter())
 			.collect();
 
+		key
+	}
+
+	fn publish_credentials(dht_key:           Vec<u8>,
+	                       shared_secret:     &SharedSecret,
+	                       local_credentials: Vec<u8>)
+		-> Result<(Vec<u8>),ConnectError>
+	{
 		let mut plaintext_value = Cursor::new(vec![]);
 		let now = time::now_utc().to_timespec();
 		plaintext_value.write_i64::<LittleEndian>(now.sec).unwrap();
@@ -210,26 +218,27 @@ impl Intercom {
 		let mut msg = Message::new_method_call("org.manuel.BulletinBoard", "/",
 			"org.manuel.BulletinBoard", "Put").unwrap();
 		msg.append_items(&[MessageItem::Str(BULLETIN_BOARD_ID.to_string()),
-		                   key.to_dbus_item(),
+		                   dht_key.to_dbus_item(),
 		                   ciphertext_value.to_dbus_item()]);
 		try!(conn.send_with_reply_and_block(msg, 60000)
 			.map_err(|e| {info!("{:?}", e); ConnectError::DHTError}));
 
-		Ok((key, ciphertext_value))
+		Ok(ciphertext_value)
 	}
 
 
-	fn unpublish_credentials(&self, key: Vec<u8>, value: Vec<u8>)
-		-> Result<(),ConnectError>
+	fn unpublish_credentials(&self, key: Vec<u8>)
 	{
 		let conn = DbusConnection::get_private(BusType::Session).unwrap();
 		let mut msg = Message::new_method_call("org.manuel.BulletinBoard", "/",
-			"org.manuel.BulletinBoard", "Remove").unwrap();
-		msg.append_items(&[key.to_dbus_item(), value.to_dbus_item()]);//TODO: use value too!!!
-		try!(conn.send(msg)
-			.map_err(|e| {info!("{:?}", e); ConnectError::DHTError}));
-
-		Ok(())
+			"org.manuel.BulletinBoard", "RemoveKey").unwrap();
+		//msg.append_items(&[key.to_dbus_item(), value.to_dbus_item()]);//TODO: use value too!!!
+		msg.append_items(&[MessageItem::Str(BULLETIN_BOARD_ID.to_string()),
+		                   key.to_dbus_item()]);//TODO: use value too!!!
+		match conn.send_with_reply_and_block(msg, 2000) {
+			Ok(_) => (),
+			Err(err) => warn!("{:?}", err),
+		};
 	}
 }
 

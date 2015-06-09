@@ -58,8 +58,10 @@ fn generate_cert(private_key: &PKey) -> Result<X509,()> {
 
 	let cert = try!(gen.sign(&private_key).map_err(|_| ()));
 
+	// !!!!!!!! FIX THIS SHIT !!!!!!!!!!!!!!
 	let mut file = File::create("/tmp/foo.txt").unwrap();
 	cert.write_pem(&mut file).unwrap();
+	// !!!!!!!! FIX THIS SHIT !!!!!!!!!!!!!!
 
 	Ok(cert)
 }
