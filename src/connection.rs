@@ -2,6 +2,7 @@
 use std::sync::{Arc,Mutex,Condvar};
 use std::sync::mpsc::{channel,Sender,Receiver};
 use std::os::unix::io::{RawFd,AsRawFd};
+use std::thread::spawn;
 
 use libc::consts::os::bsd44::{SOCK_DGRAM, SOCK_STREAM};
 use openssl::x509::X509StoreContext;
@@ -102,7 +103,16 @@ impl Connection {
 				let (plaintext_tx, plaintext_rx) = plaintext_ch;
 				let stream = PseudoTcpStream::new_from(plaintext_tx, plaintext_rx,
 					stream_tx, stream_rx);
-				drop(stream);
+
+				if self.controlling_mode {
+					stream.connect();
+				}
+
+				spawn(move || {
+					// TODO: keep stream better alive!
+					loop {};
+					drop(stream);
+				});
 
 				let sock = ChannelToSocket::new_from(SOCK_STREAM, proto, socket_ch).unwrap();
 				sock.as_raw_fd()

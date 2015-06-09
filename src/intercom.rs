@@ -221,7 +221,7 @@ impl Intercom {
 		                   dht_key.to_dbus_item(),
 		                   ciphertext_value.to_dbus_item()]);
 		try!(conn.send_with_reply_and_block(msg, 60000)
-			.map_err(|e| {info!("{:?}", e); ConnectError::DHTError}));
+			.map_err(|e| {warn!("{:?}", e); ConnectError::DHTError}));
 
 		Ok(ciphertext_value)
 	}
@@ -235,7 +235,7 @@ impl Intercom {
 		//msg.append_items(&[key.to_dbus_item(), value.to_dbus_item()]);//TODO: use value too!!!
 		msg.append_items(&[MessageItem::Str(BULLETIN_BOARD_ID.to_string()),
 		                   key.to_dbus_item()]);//TODO: use value too!!!
-		match conn.send_with_reply_and_block(msg, 2000) {
+		match conn.send_with_reply_and_block(msg, 5000) {
 			Ok(_) => (),
 			Err(err) => warn!("{:?}", err),
 		};
