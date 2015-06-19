@@ -1,5 +1,7 @@
 use std::io::{Cursor,Write};
 use std::os::unix::io::RawFd;
+use std::cmp::Ordering;
+use std::thread::{spawn,sleep_ms};
 
 use rustc_serialize::hex::{ToHex,FromHex};
 
@@ -43,6 +45,7 @@ pub struct Intercom {
 	local_private_key: ecdh::PrivateKey,
 }
 
+#[derive(Clone)]
 struct SharedSecret {
 	key:  Vec<u8>,
 	iv:   Vec<u8>,
@@ -99,26 +102,33 @@ impl Intercom {
 
 		let dht_key = Self::generate_dht_key(app_id.clone(),
 		                            &self.local_private_key, &remote_public_key);
-		self.unpublish_credentials(dht_key.clone());
 
-		// TODO: async {
 		let local_credentials = conn.get_local_credentials();
-		debug!("publishing {:?}", String::from_utf8(local_credentials.clone()));
-		let dht_value = try!(Self::publish_credentials(dht_key.clone(), &shared_secret, local_credentials));
-		debug!("published");
-		// }
+		let shared_secret_publish = shared_secret.clone();
+		
+		let publisher = spawn(move || {
+			let shared_secret = shared_secret_publish;
+
+			loop {
+				debug!("publishing {:?}", String::from_utf8(local_credentials.clone()));
+				Self::publish_credentials(dht_key.clone(), &shared_secret,
+					local_credentials.clone());
+				debug!("published");
+
+				sleep_ms(60*1000);
+			}
+		});
 
 		let retry_time = Duration::seconds(5);
 		let result = retry(timeout, retry_time, || {
 			debug!("retrying");
 			let remote_credentials = try!(self.get_remote_credentials(&shared_secret,
 				app_id.clone(), &remote_public_key));
+			info!("server={:?} remote credentials are {:?}", controlling_mode, String::from_utf8(remote_credentials.clone()));
 
 			let fd = try!(conn.establish_connection(remote_credentials));
 			Ok(fd)
 		});
-
-		self.unpublish_credentials(dht_key);
 
 		result
 	}
@@ -155,16 +165,24 @@ impl Intercom {
 					.filter(|vec| vec.len() > TIME_LEN)
 					.collect();
 
-				let read_timestamp = |v:&Vec<u8>| {
+				let now = time::now_utc().to_timespec();
+				let read_age = |v:&Vec<u8>| {
 					let mut c = Cursor::new(v.clone());
 					c.set_position(0);
-					c.read_i64::<LittleEndian>().unwrap()
+					let timestamp = c.read_i64::<LittleEndian>().ok();
+					timestamp.map(|ts| now.sec - ts)
 				};
 
 				values.sort_by(|x,y| {
-					let x = read_timestamp(x);
-					let y = read_timestamp(y);
-					x.cmp(&y)
+					let a = read_age(x);
+					let b = read_age(y);
+
+					match (a,b) {
+						(Some(a), Some(b)) => a.cmp(&b),
+						(None, None)    => Ordering::Equal,
+						(None, Some(_)) => Ordering::Less,
+						(Some(_), None) => Ordering::Greater,
+					}
 				});
 
 				match values.pop() {
@@ -172,12 +190,15 @@ impl Intercom {
 					Some(latest) => {
 						let (timestamp, credentials) = latest.split_at(TIME_LEN);
 
-						let now = time::now_utc().to_timespec();
-						let age_sec = now.sec - read_timestamp(&timestamp.to_vec());
+						match read_age(&timestamp.to_vec()) {
+							None => Err(ConnectError::RemoteCredentialsNotFound),
+							Some(age_sec) => {
+								info!("Lastest remote credentials are {}sec old", age_sec);
 
-						info!("Lastest remote credentials are {}sec old", age_sec);
+								Ok(credentials.to_vec())
+							}
+						}
 
-						Ok(credentials.to_vec())
 					}
 				}
 			},
@@ -213,6 +234,7 @@ impl Intercom {
 		plaintext_value.write(&local_credentials[..]).unwrap();
 
 		let ciphertext_value = shared_secret.encrypt_then_mac(plaintext_value.get_ref());
+		debug!("local credential len={}", ciphertext_value.len());
 
 		let conn = DbusConnection::get_private(BusType::Session).unwrap();
 		let mut msg = Message::new_method_call("org.manuel.BulletinBoard", "/",
@@ -225,31 +247,16 @@ impl Intercom {
 
 		Ok(ciphertext_value)
 	}
-
-
-	fn unpublish_credentials(&self, key: Vec<u8>)
-	{
-		let conn = DbusConnection::get_private(BusType::Session).unwrap();
-		let mut msg = Message::new_method_call("org.manuel.BulletinBoard", "/",
-			"org.manuel.BulletinBoard", "RemoveKey").unwrap();
-		//msg.append_items(&[key.to_dbus_item(), value.to_dbus_item()]);//TODO: use value too!!!
-		msg.append_items(&[MessageItem::Str(BULLETIN_BOARD_ID.to_string()),
-		                   key.to_dbus_item()]);//TODO: use value too!!!
-		match conn.send_with_reply_and_block(msg, 5000) {
-			Ok(_) => (),
-			Err(err) => warn!("{:?}", err),
-		};
-	}
 }
 
 impl SharedSecret {
 	/// bloat up 512-bit shared ECDH key to 768 bits (= 3*256 bits = key, IC, hash)
 	fn new<'a>(local_private_key: &'a ecdh::PrivateKey, remote_public_key: &'a ecdh::PublicKey) -> SharedSecret
 	{
-		let shared_key = ECDH::compute_key(local_private_key, remote_public_key).unwrap();
+		let shared = ECDH::compute_key(local_private_key, remote_public_key).unwrap();
 
-		assert_eq!(shared_key.len(), 512/8);
-		let (key, seed) = shared_key[..].split_at(256/8);
+		assert_eq!(shared.len(), 512/8);
+		let (key, seed) = shared[..].split_at(256/8);
 
 		assert_eq!(seed.len(), 256/8);
 		let typ = hash::Type::SHA512;
@@ -277,7 +284,8 @@ impl SharedSecret {
 	fn decrypt(&self, ciphertext: &Vec<u8>)
 		-> Option<Vec<u8>>
 	{
-		if HMAC_HASH.md_len() > ciphertext.len()  {
+		if ciphertext.len() < HMAC_HASH.md_len() {
+			debug!("Credentials are invalid (too short)");
 			return None;
 		}
 
@@ -288,8 +296,13 @@ impl SharedSecret {
 
 		assert_eq!(actual_hmac.len(), expected_hmac.len());
 		if crypto::memcmp::eq(&actual_hmac, &expected_hmac) {
+			debug!("Credentials are valid");
 			Some(plaintext)
 		} else {
+			debug!("Credentials are invalid (incorrect hmac)");
+			debug!("actual hmac  ={:?}", actual_hmac);
+			debug!("expected hmac={:?}", expected_hmac);
+			
 			None
 		}
 	}
@@ -309,6 +322,23 @@ fn test_shared_secret() {
 	let ciphertext = shared_secret.encrypt_then_mac(&plaintext);
 
 	assert_eq!(Some(plaintext), shared_secret.decrypt(&ciphertext));
+
+	let manipulated_ciphertext = ciphertext.into_iter().chain(vec![1].into_iter()).collect();
+	assert_eq!(None, shared_secret.decrypt(&manipulated_ciphertext));
+}
+
+#[test]
+fn test_shared_secret_manipulated() {
+	let public_key  = vec![48u8, 51, 48, 49, 48, 66, 67, 54, 53, 56, 51, 52, 65, 56, 54, 50, 65, 65, 57, 65, 51, 51, 69, 51, 65, 51, 48, 69, 52, 70, 57, 50, 49, 51, 57, 67, 50, 56, 49, 70, 68, 49, 48, 52, 54, 49, 54, 50, 51, 56, 66, 70, 67, 48, 49, 54, 68, 65, 66, 53, 69, 49, 48, 57, 68, 54, 69, 70, 48, 55, 55, 50, 55, 70, 69, 69, 51, 50, 48, 70, 69, 67, 54, 65, 53, 52, 69, 57, 49, 66, 53, 67, 49, 52, 54, 52, 49, 53, 54, 51, 48, 50, 50, 65, 57, 69, 50, 51, 53, 53, 66, 48, 65, 70, 65, 49, 54, 50, 54, 52, 66, 51, 68, 70, 65, 69, 50, 49, 55, 55, 66, 55, 70, 53];
+	let private_key = vec![54u8, 69, 51, 50, 69, 54, 48, 50, 54, 69, 56, 66, 54, 69, 52, 48, 54, 53, 51, 57, 57, 54, 65, 69, 70, 70, 57, 65, 69, 49, 68, 55, 53, 49, 51, 66, 69, 52, 55, 55, 56, 56, 65, 68, 53, 67, 49, 51, 51, 51, 53, 65, 48, 52, 67, 54, 54, 65, 51, 57, 57, 68, 53, 51, 65, 53, 70, 65, 50, 55, 50, 66, 54, 55, 55, 68, 66, 54, 55, 48, 69, 66, 65, 50, 66, 66, 52, 70, 49, 67, 56, 49, 57, 52, 49, 57, 68, 50, 55, 67, 55, 66, 67, 53, 68, 51, 52, 56, 51, 56, 49, 49, 54, 56, 55, 49, 68, 56, 49, 48, 55, 50, 56, 66, 50, 49, 65, 55, 67, 66];
+
+	let public_key = ecdh::PublicKey::from_vec(&public_key).unwrap();
+	let private_key = ecdh::PrivateKey::from_vec(&private_key).unwrap();
+
+	let shared_secret = SharedSecret::new(&private_key, &public_key);
+
+	let plaintext = "foobar".bytes().collect();
+	let ciphertext = shared_secret.encrypt_then_mac(&plaintext);
 
 	let manipulated_ciphertext = ciphertext.into_iter().chain(vec![1].into_iter()).collect();
 	assert_eq!(None, shared_secret.decrypt(&manipulated_ciphertext));
