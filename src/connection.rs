@@ -27,34 +27,38 @@ const CIPHERS:&'static str = concat!(
 	"ECDH-ECDSA-AES128-SHA");    // <- this one is probably used
 
 pub struct Connection {
-	local_credentials: Arc<(Mutex<Option<Vec<u8>>>, Condvar)>,
 	agent:             IceAgent,
+	socket_type:       i32,
+	controlling_mode:  bool,
 	local_private_key: PKey,
 	remote_public_key: Arc<PKey>,
-	controlling_mode:  bool,
-	socket_type:       i32,
+	local_credentials: Arc<(Mutex<Option<String>>, Condvar)>,
 }
 
 impl Connection {
-	pub fn new(socket_type: i32, local_private_key: PKey, remote_public_key: PKey,
-	           controlling_mode: bool)
+	pub fn new(socket_type:       i32,
+	           local_private_key: PKey,
+	           remote_public_key: PKey,
+	           controlling_mode:  bool)
 		-> Result<Connection, ConnectError>
 	{
+		let err = "IceAgent::new() failed";
 		let agent = try!(IceAgent::new(controlling_mode)
-		                 .map_err(|_| ConnectError::Internal("IceAgent::new() failed")));
+		                 .map_err(|_| ConnectError::Internal(err)));
 
 		let mut conn = Connection {
-			local_credentials: Arc::new((Mutex::new(None),Condvar::new())),
 			agent:             agent,
+			socket_type:       socket_type,
+			controlling_mode:  controlling_mode,
 			local_private_key: local_private_key,
 			remote_public_key: Arc::new(remote_public_key),
-			controlling_mode:  controlling_mode,
-			socket_type:       socket_type,
+			local_credentials: Arc::new((Mutex::new(None),Condvar::new())),
 		};
 
 		// TODO: async
 		{
 			let credentials = conn.agent.get_local_credentials().unwrap();
+			let credentials = String::from_utf8(credentials).unwrap();
 
 			let &(ref lock, ref cvar) = &*conn.local_credentials;
 			let mut var = lock.lock().unwrap();
@@ -66,17 +70,19 @@ impl Connection {
 	}
 
 	fn generate_cert(private_key: &PKey) -> Result<X509,SslError> {
+		let usage = [ExtKeyUsage::ClientAuth, ExtKeyUsage::ServerAuth];
+
 		let gen = X509Generator::new()
 			.set_valid_period(365)
 			.set_sign_hash(SHA512)
 			.set_usage(&[KeyUsage::KeyAgreement])
-			.set_ext_usage(&[ExtKeyUsage::ClientAuth, ExtKeyUsage::ServerAuth]);
+			.set_ext_usage(&usage);
 
 		let cert = gen.sign(&private_key);
 		cert
 	}
 
-	pub fn get_local_credentials(&self) -> Vec<u8> {
+	pub fn get_local_credentials(&self) -> String {
 		let &(ref lock, ref cvar) = &*self.local_credentials;
 		let mut credentials = lock.lock().unwrap();
 		while credentials.is_none() {
@@ -89,35 +95,26 @@ impl Connection {
 	pub fn establish_connection(&mut self, remote_credentials: Vec<u8>)
 		-> Result<RawFd, ConnectError>
 	{
-		let ((cipher_tx,cipher_rx), (ice_tx,ice_rx)) = duplex_channel();
+		let (ciphertext_ch, ice_ch) = duplex_channel();
 		
-		if self.agent.stream_to_channel(&remote_credentials, ice_tx, ice_rx).is_err() {
-			info!("stream_to_channel failed");
-			return Err(ConnectError::IceConnectFailed);
-		}
+		let res = self.agent.stream_to_channel(&remote_credentials, ice_ch);
+		try!(res.map_err(|_| ConnectError::IceConnectFailed));
 
-		let ciphertext_ch = (cipher_tx, cipher_rx);
-		let plaintext_ch = match self.encrypt_connection(ciphertext_ch) {
-			Ok(ch) => ch,
-			Err(ssl_err) => return Err(ConnectError::SslError(ssl_err)),
-		};
+		let plaintext_ch = try!(self.encrypt_connection(ciphertext_ch)
+		                            .map_err(|e| ConnectError::SslError(e)));
 
 		let proto = 0;
-		let fd = match self.socket_type {
-			SOCK_DGRAM => {
-				let sock = ChannelToSocket::new_from(SOCK_DGRAM, proto, plaintext_ch).unwrap();
-				sock.as_raw_fd()
-			},
+		let ch = match self.socket_type {
 			SOCK_STREAM => {
-				let (socket_ch, (stream_tx,stream_rx)) = duplex_channel();
+				let (plain_tx, plain_rx) = plaintext_ch;
+				let ((stream_tx,stream_rx), socket_ch) = duplex_channel();
 
-				let (plaintext_tx, plaintext_rx) = plaintext_ch;
-				let stream = PseudoTcpStream::new_from(plaintext_tx, plaintext_rx,
-					stream_tx, stream_rx);
+				let stream = PseudoTcpStream::new_from(plain_tx, plain_rx,
+				                                       stream_tx, stream_rx);
 
 				if self.controlling_mode {
-					let err = "Could not establish reliable connection";
 					let res = stream.connect();
+					let err = "Could not establish reliable connection";
 					try!(res.map_err(|_| ConnectError::Internal(err)));
 				}
 
@@ -127,23 +124,36 @@ impl Connection {
 					drop(stream);
 				});
 
-				let sock = ChannelToSocket::new_from(SOCK_STREAM, proto, socket_ch).unwrap();
-				sock.as_raw_fd()
+				socket_ch
 			},
-			_ => unimplemented!(),
+			_ => plaintext_ch,
 		};
+
+		let sock = try!(ChannelToSocket::new_from(self.socket_type, proto, ch)
+		                                .map_err(|e| ConnectError::IoError(e)));
+		let fd = sock.as_raw_fd();
+
 		debug!("SSL fd={}", fd);
 		Ok(fd)
 	}
 
-	fn encrypt_connection(&self, ciphertext_ch: (Sender<Vec<u8>>, Receiver <Vec<u8>>))
+	fn encrypt_connection(&self,
+	                      ciphertext_ch: (Sender<Vec<u8>>, Receiver <Vec<u8>>))
 		-> Result<(Sender<Vec<u8>>, Receiver <Vec<u8>>), SslError>
 	{
-		let flags = ssl::SSL_VERIFY_PEER | ssl::SSL_VERIFY_FAIL_IF_NO_PEER_CERT;
+		let is_server         = self.controlling_mode;
+		let remote_public_key = self.remote_public_key.clone();
+
+		let flags = ssl::SSL_VERIFY_PEER |
+		            ssl::SSL_VERIFY_FAIL_IF_NO_PEER_CERT;
+
 		let mut ctx = try!(SslContext::new(SslMethod::Dtlsv1));
-		ctx.set_verify_with_data(flags, Self::verify_cert, self.remote_public_key.clone());
+		ctx.set_verify_with_data(flags,
+		                         Self::verify_cert,
+		                         remote_public_key);
 
 		let cert = try!(Self::generate_cert(&self.local_private_key));
+
 		try!(ctx.set_certificate(&cert));
 		try!(ctx.set_private_key(&self.local_private_key));
 		try!(ctx.check_private_key());
@@ -151,17 +161,20 @@ impl Connection {
 
 		let (my_plain_ch,your_plain_ch) = duplex_channel();
 
-		let is_server = self.controlling_mode;
-		let ssl = try!(SslChannel::new(&ctx, is_server,
-			ciphertext_ch, my_plain_ch));
+		let ssl = try!(SslChannel::new(&ctx,
+		                               is_server,
+		                               ciphertext_ch,
+		                               my_plain_ch));
 		drop(ssl);
 
 		Ok(your_plain_ch)
 	}
 
 	#[allow(unused_variables)]
-	fn verify_cert(preverify_ok: bool, x509_ctx: &X509StoreContext,
-		           expected_key: &Arc<PKey>) -> bool
+	fn verify_cert(preverify_ok: bool,
+	               x509_ctx: &X509StoreContext,
+		           expected_key: &Arc<PKey>)
+		-> bool
 	{
 		info!("ssl x509 callback");
 
@@ -169,12 +182,12 @@ impl Connection {
 			None => false,
 			Some(cert) => {
 				let actual_key = cert.public_key();
-				
-				if actual_key.public_eq(expected_key) {
-					true
+
+				if expected_key.public_eq(&actual_key) {
+					return true;
 				} else {
 					warn!("Expected different public key!");
-					false
+					return false;
 				}
 			}
 		}

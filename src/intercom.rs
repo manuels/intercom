@@ -1,3 +1,4 @@
+use std::io::Error as IoError;
 use std::io::{Cursor,Write};
 use std::os::unix::io::RawFd;
 use std::cmp::Ordering;
@@ -30,6 +31,7 @@ pub enum ConnectError {
 	RemoteCredentialsNotFound,
 	IceConnectFailed,
 	SslError(SslError),
+	IoError(IoError),
 	DHTError,
 	Internal(&'static str),
 	FOO,
@@ -105,7 +107,7 @@ impl Intercom {
 			sleep_ms(15*1000);
 
 			while *continue_publishing.lock().unwrap() {
-				debug!("publishing {:?}", String::from_utf8(local_credentials.clone()));
+				debug!("publishing {:?}", local_credentials);
 				Self::publish_credentials(dht_key.clone(), &shared_secret,
 					local_credentials.clone()).unwrap();
 				debug!("published");
@@ -221,13 +223,13 @@ impl Intercom {
 
 	fn publish_credentials(dht_key:           Vec<u8>,
 	                       shared_secret:     &SharedSecret,
-	                       local_credentials: Vec<u8>)
+	                       local_credentials: String)
 		-> Result<(Vec<u8>),ConnectError>
 	{
 		let mut plaintext_value = Cursor::new(vec![]);
 		let now = time::now_utc().to_timespec();
 		plaintext_value.write_i64::<LittleEndian>(now.sec).unwrap();
-		plaintext_value.write(&local_credentials[..]).unwrap();
+		plaintext_value.write(&local_credentials.into_bytes()[..]).unwrap();
 
 		let ciphertext_value = shared_secret.encrypt_then_mac(plaintext_value.get_ref());
 

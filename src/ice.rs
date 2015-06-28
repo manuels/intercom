@@ -53,10 +53,11 @@ impl IceAgent {
 
 	pub fn stream_to_channel(&mut self,
 		                     credentials: &Vec<u8>,
-	                         tx:          Sender<Vec<u8>>,
-	                         rx:          Receiver<Vec<u8>>)
+	                         ch:          (Sender<Vec<u8>>,Receiver<Vec<u8>>))
 		-> Result<(), ()>
 	{
+		let (tx,rx) = ch;
+		
 		match String::from_utf8(credentials.clone()) {
 			Ok(cred) => {
 				debug!("remote credentials {:?}", cred);
