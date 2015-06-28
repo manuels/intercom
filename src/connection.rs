@@ -10,7 +10,7 @@ use openssl::crypto::pkey::PKey;
 use openssl::ssl::{SslContext, SslMethod};
 use openssl::ssl::error::SslError;
 use openssl::ssl;
-use openssl::crypto::hash::Type::SHA256;
+use openssl::crypto::hash::Type::SHA512;
 use openssl::x509::{X509,X509Generator,KeyUsage,ExtKeyUsage};
 use pseudotcp::PseudoTcpStream;
 
@@ -67,9 +67,8 @@ impl Connection {
 
 	fn generate_cert(private_key: &PKey) -> Result<X509,SslError> {
 		let gen = X509Generator::new()
-			.set_valid_period(365*2)
-			//.set_CN("test_me")
-			.set_sign_hash(SHA256)
+			.set_valid_period(365)
+			.set_sign_hash(SHA512)
 			.set_usage(&[KeyUsage::KeyAgreement])
 			.set_ext_usage(&[ExtKeyUsage::ClientAuth, ExtKeyUsage::ServerAuth]);
 

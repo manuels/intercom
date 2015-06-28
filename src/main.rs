@@ -28,6 +28,7 @@ mod syscalls;
 mod ssl;
 mod intercom;
 mod connection;
+mod shared_secret;
 #[cfg(test)]
 mod tests;
 
