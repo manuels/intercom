@@ -16,7 +16,6 @@ extern crate dbus;
 
 #[cfg(not(test))]
 use std::env;
-use time::Duration;
 use std::io::Read;
 
 use std::fs::File;

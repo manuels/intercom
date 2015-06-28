@@ -117,7 +117,9 @@ impl Connection {
 					stream_tx, stream_rx);
 
 				if self.controlling_mode {
-					stream.connect();
+					let err = "Could not establish reliable connection";
+					let res = stream.connect();
+					try!(res.map_err(|_| ConnectError::Internal(err)));
 				}
 
 				spawn(move || {

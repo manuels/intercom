@@ -4,7 +4,6 @@ use libc::funcs::bsd43::{send,recv};
 use std::io::{Error, Result, ErrorKind};
 use std::io::{Read,Write};
 use std::sync::mpsc::{Sender,Receiver};
-use std::sync::mpsc::channel;
 use std::vec::Vec;
 use std::thread;
 use std::os::unix::io::{AsRawFd,RawFd};

@@ -4,14 +4,6 @@ pub mod socket;
 pub mod is_readable;
 pub mod retry;
 pub mod convert_dbus_item;
-//pub use retry::retry;
-
-pub fn ignore<T,F>(res: Result<T,F>) {
-	match res {
-		Ok(_) => (),
-		Err(_) => (),
-	}
-}
 
 pub fn duplex_channel<T,U>()
 	-> ((Sender<T>, Receiver<U>), (Sender<U>, Receiver<T>))

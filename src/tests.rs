@@ -5,7 +5,7 @@ use std::thread::{spawn,sleep_ms};
 
 use libc::consts::os::bsd44::{SOCK_DGRAM, SOCK_STREAM};
 use libc::funcs::bsd43::{send,recv};
-use libc::{ssize_t,size_t,c_void};
+use libc::{size_t,c_void};
 
 use dbus::Connection as DbusConnection;
 use dbus::{Message,MessageItem,BusType};

@@ -22,7 +22,6 @@ use dbus::Connection as DbusConnection;
 use utils::convert_dbus_item::ConvertDbusItem;
 use connection::Connection;
 use utils::retry::retry;
-use utils::ignore;
 
 const TIME_LEN: usize = 64/8;
 
