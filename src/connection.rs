@@ -1,6 +1,6 @@
 //use std::thread::spawn;
 use std::sync::{Arc,Mutex,Condvar};
-use std::sync::mpsc::{channel,Sender,Receiver};
+use std::sync::mpsc::{Sender,Receiver};
 use std::os::unix::io::{RawFd,AsRawFd};
 use std::thread::spawn;
 
@@ -18,6 +18,7 @@ use ssl::SslChannel;
 use utils::socket::ChannelToSocket;
 use intercom::ConnectError;
 use ice::IceAgent;
+use utils::duplex_channel;
 
 const CIPHERS:&'static str = concat!(
 	"ECDHE-ECDSA-AES128-GCM-SHA256,",// won't work with DTLSv1 (but probably with v1.2)
@@ -89,8 +90,7 @@ impl Connection {
 	pub fn establish_connection(&mut self, remote_credentials: Vec<u8>)
 		-> Result<RawFd, ConnectError>
 	{
-		let (cipher_tx, ice_rx) = channel();
-		let (ice_tx, cipher_rx) = channel();
+		let ((cipher_tx,cipher_rx), (ice_tx,ice_rx)) = duplex_channel();
 		
 		if self.agent.stream_to_channel(&remote_credentials, ice_tx, ice_rx).is_err() {
 			info!("stream_to_channel failed");
@@ -110,9 +110,7 @@ impl Connection {
 				sock.as_raw_fd()
 			},
 			SOCK_STREAM => {
-				let (stream_tx, socket_rx) = channel();
-				let (socket_tx, stream_rx) = channel();
-				let socket_ch = (socket_tx, socket_rx);
+				let (socket_ch, (stream_tx,stream_rx)) = duplex_channel();
 
 				let (plaintext_tx, plaintext_rx) = plaintext_ch;
 				let stream = PseudoTcpStream::new_from(plaintext_tx, plaintext_rx,
@@ -150,10 +148,7 @@ impl Connection {
 		try!(ctx.check_private_key());
 		try!(ctx.set_cipher_list(CIPHERS));
 
-		let (my_plain_tx, your_plain_rx) = channel();
-		let (your_plain_tx, my_plain_rx) = channel();
-		let my_plain_ch =  (my_plain_tx, my_plain_rx);
-		let your_plain_ch =  (your_plain_tx, your_plain_rx);
+		let (my_plain_ch,your_plain_ch) = duplex_channel();
 
 		let is_server = self.controlling_mode;
 		let ssl = try!(SslChannel::new(&ctx, is_server,

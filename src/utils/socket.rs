@@ -11,6 +11,7 @@ use std::os::unix::io::{AsRawFd,RawFd};
 
 use libc::consts::os::bsd44::AF_UNIX;
 
+use utils::duplex_channel;
 use syscalls;
 
 pub struct ChannelToSocket {
@@ -23,11 +24,10 @@ impl ChannelToSocket {
 	           protocol: c_int)
 		-> Result<(ChannelToSocket, (Sender<Vec<u8>>, Receiver<Vec<u8>>))>
 	{
-		let (tx_a, rx_a) = channel();
-		let (tx_b, rx_b) = channel();
-		let fd = try!(ChannelToSocket::new_from(typ, protocol, (tx_a, rx_b)));
+		let (my_ch, your_ch) = duplex_channel();
+		let fd = try!(ChannelToSocket::new_from(typ, protocol, my_ch));
 
-		Ok((fd, (tx_b, rx_a)))
+		Ok((fd, your_ch))
 	}
 
 	pub fn new_from(typ: c_int,

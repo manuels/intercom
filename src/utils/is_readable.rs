@@ -11,14 +11,14 @@ pub struct IsReadable {
 }
 
 impl IsReadable {
-	pub fn new(rx: Receiver<Vec<u8>>) -> (Receiver<Vec<u8>>, IsReadable) {
+	pub fn new(old_rx: Receiver<Vec<u8>>) -> (Receiver<Vec<u8>>, IsReadable) {
 		let (tx, new_rx) = channel();
 
 		let my_readable = Arc::new((Mutex::new(false), Condvar::new()));
 
 		let your_is_readable = my_readable.clone();
 		thread::Builder::new().name("IsReadable".to_string()).spawn(move || {
-			for buf in rx.iter() {
+			for buf in old_rx.iter() {
 				let &(ref lock, ref cvar) = &*my_readable;
 				let mut is_readable = lock.lock().unwrap();
 				
