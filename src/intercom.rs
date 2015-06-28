@@ -109,6 +109,10 @@ impl Intercom {
 		let publisher = spawn(move || {
 			let shared_secret = shared_secret_publish;
 
+			Self::publish_credentials(dht_key.clone(), &shared_secret,
+				local_credentials.clone());
+			sleep_ms(15*1000);
+
 			loop {
 				debug!("publishing {:?}", String::from_utf8(local_credentials.clone()));
 				Self::publish_credentials(dht_key.clone(), &shared_secret,
@@ -148,8 +152,8 @@ impl Intercom {
 		let conn = DbusConnection::get_private(BusType::Session).unwrap();
 		let mut msg = Message::new_method_call("org.manuel.BulletinBoard", "/",
 			"org.manuel.BulletinBoard", "Get").unwrap();
-		msg.append_items(&[MessageItem::Str(BULLETIN_BOARD_ID.to_string()),
-			key.to_dbus_item()]);
+		let app_id = MessageItem::Str(BULLETIN_BOARD_ID.to_string());
+		msg.append_items(&[app_id, key.to_dbus_item()]);
 		let mut reply = try!(conn.send_with_reply_and_block(msg, 60000)
 			.map_err(|e| {info!("{:?}", e); ConnectError::DHTError}));
 
@@ -234,12 +238,13 @@ impl Intercom {
 		plaintext_value.write(&local_credentials[..]).unwrap();
 
 		let ciphertext_value = shared_secret.encrypt_then_mac(plaintext_value.get_ref());
-		debug!("local credential len={}", ciphertext_value.len());
 
 		let conn = DbusConnection::get_private(BusType::Session).unwrap();
+
 		let mut msg = Message::new_method_call("org.manuel.BulletinBoard", "/",
 			"org.manuel.BulletinBoard", "Put").unwrap();
-		msg.append_items(&[MessageItem::Str(BULLETIN_BOARD_ID.to_string()),
+		let app_id = MessageItem::Str(BULLETIN_BOARD_ID.to_string());
+		msg.append_items(&[app_id,
 		                   dht_key.to_dbus_item(),
 		                   ciphertext_value.to_dbus_item()]);
 		try!(conn.send_with_reply_and_block(msg, 60000)

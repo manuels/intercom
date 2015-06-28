@@ -48,7 +48,6 @@ impl SslChannel
 		};
 
 		info!("{} SSL handshake done! 2/2", is_server);
-		//ciphertext_rw.set_blocking(false);
 
 		let channel = SslChannel {
 			stream: Arc::new(Mutex::new(stream)),

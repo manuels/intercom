@@ -10,6 +10,8 @@ use openssl::crypto::pkey::PKey;
 use openssl::ssl::{SslContext, SslMethod};
 use openssl::ssl::error::SslError;
 use openssl::ssl;
+use openssl::crypto::hash::Type::SHA256;
+use openssl::x509::{X509,X509Generator,KeyUsage,ExtKeyUsage};
 use pseudotcp::PseudoTcpStream;
 
 use ssl::SslChannel;
@@ -60,6 +62,18 @@ impl Connection {
 		}
 
 		Ok(conn)
+	}
+
+	fn generate_cert(private_key: &PKey) -> Result<X509,SslError> {
+		let gen = X509Generator::new()
+			.set_valid_period(365*2)
+			//.set_CN("test_me")
+			.set_sign_hash(SHA256)
+			.set_usage(&[KeyUsage::KeyAgreement])
+			.set_ext_usage(&[ExtKeyUsage::ClientAuth, ExtKeyUsage::ServerAuth]);
+
+		let cert = gen.sign(&private_key);
+		cert
 	}
 
 	pub fn get_local_credentials(&self) -> Vec<u8> {
@@ -130,7 +144,7 @@ impl Connection {
 		let mut ctx = try!(SslContext::new(SslMethod::Dtlsv1));
 		ctx.set_verify_with_data(flags, Self::verify_cert, self.remote_public_key.clone());
 
-		let cert = ::generate_cert(&self.local_private_key).unwrap();
+		let cert = try!(Self::generate_cert(&self.local_private_key));
 		try!(ctx.set_certificate(&cert));
 		try!(ctx.set_private_key(&self.local_private_key));
 		try!(ctx.check_private_key());

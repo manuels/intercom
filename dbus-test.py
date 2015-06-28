@@ -8,17 +8,18 @@ dbus_path = sys.argv[1]
 pub_key = sys.argv[2]
 
 bus = dbus.SessionBus()
-intercom = bus.get_object(dbus_path, "/org/manuel/Intercom", introspect=False)
+intercom = bus.get_object(dbus_path, "/", introspect=False)
 
-domain      = dbus.Int32(socket.SOCK_DGRAM)
-public_key  = dbus.ByteArray(pub_key)
-port        = dbus.UInt32(0)
-timeout_sec = dbus.UInt32(10)
+sock_type   = socket.SOCK_STREAM
+domain      = dbus.Int32(sock_type)
+public_key  = dbus.String(pub_key)
+port        = dbus.String("test")
+timeout_sec = dbus.UInt32(2*60)
 
-result = intercom.connect(domain, public_key, port, timeout_sec, dbus_interface='org.manuel.Intercom')
+result = intercom.Connect(domain, public_key, port, timeout_sec, dbus_interface='org.manuel.Intercom', timeout=2*60)
 
 fd   = result.take()
-sock = socket.fromfd(fd, socket.AF_UNIX, socket.SOCK_DGRAM, 0)
+sock = socket.fromfd(fd, socket.AF_UNIX, sock_type, 0)
 
 for i in range(3):
 	sent = pub_key

@@ -12,14 +12,14 @@ dbus_path = sys.argv[1]
 pub_key   = sys.argv[2]
 
 bus = dbus.SessionBus()
-intercom = bus.get_object(dbus_path, "/org/manuel/Intercom", introspect=False)
+intercom = bus.get_object(dbus_path, "/", introspect=False)
 
 domain      = dbus.Int32(socket.SOCK_DGRAM)
-public_key  = dbus.ByteArray(pub_key)
-app_id      = dbus.ByteArray("cat")
+public_key  = dbus.String(pub_key)
+app_id      = dbus.String("cat")
 timeout_sec = dbus.UInt32(60)
 
-result = intercom.connect(domain, public_key, app_id, timeout_sec, dbus_interface='org.manuel.Intercom')
+result = intercom.Connect(domain, public_key, app_id, timeout_sec, dbus_interface='org.manuel.Intercom')
 fd     = result.take()
 sock   = socket.fromfd(fd, socket.AF_UNIX, socket.SOCK_DGRAM, 0)
 

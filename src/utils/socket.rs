@@ -54,7 +54,7 @@ impl ChannelToSocket {
 				};
 				debug!("ChannelToSocket sock-to-tx recv()'d fd={} len={}", fd_read, len);
 
-				if len > 0 {
+				if len != -1 {
 					buf.truncate(len as usize);
 					
 					if tx.send(buf).is_err() {

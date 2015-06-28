@@ -21,10 +21,6 @@ use std::io::Read;
 
 use std::fs::File;
 
-use openssl::crypto::pkey::PKey;
-use openssl::crypto::hash::Type::SHA256;
-use openssl::x509::{X509,X509Generator,KeyUsage,ExtKeyUsage};
-
 #[cfg(feature="dbus")]
 mod dbus_service;
 mod ice;
@@ -42,29 +38,6 @@ use dbus_service::DBusService;
 use dbus::BusType;
 
 use intercom::Intercom;
-
-trait DHT {
-       fn get(&self, key: &Vec<u8>) -> Result<Vec<Vec<u8>>,()>;
-       fn put(&mut self, key: &Vec<u8>, value: &Vec<u8>, ttl: Duration) ->  Result<(),()>;
-}
-
-fn generate_cert(private_key: &PKey) -> Result<X509,()> {
-	let gen = X509Generator::new()
-		.set_valid_period(365*2)
-		//.set_CN("test_me")
-		.set_sign_hash(SHA256)
-		.set_usage(&[KeyUsage::KeyAgreement])
-		.set_ext_usage(&[ExtKeyUsage::ClientAuth, ExtKeyUsage::ServerAuth]);
-
-	let cert = try!(gen.sign(&private_key).map_err(|_| ()));
-
-	// !!!!!!!! FIX THIS SHIT !!!!!!!!!!!!!!
-	let mut file = File::create("/tmp/foo.txt").unwrap();
-	cert.write_pem(&mut file).unwrap();
-	// !!!!!!!! FIX THIS SHIT !!!!!!!!!!!!!!
-
-	Ok(cert)
-}
 
 #[cfg(not(test))]
 fn main() {
