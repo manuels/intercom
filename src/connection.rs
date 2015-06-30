@@ -4,7 +4,7 @@ use std::sync::mpsc::{Sender,Receiver};
 use std::os::unix::io::{RawFd,AsRawFd};
 use std::thread::spawn;
 
-use libc::consts::os::bsd44::{SOCK_DGRAM, SOCK_STREAM};
+use libc::consts::os::bsd44::SOCK_STREAM;
 use openssl::x509::X509StoreContext;
 use openssl::crypto::pkey::PKey;
 use openssl::ssl::{SslContext, SslMethod};

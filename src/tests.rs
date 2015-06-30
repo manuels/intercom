@@ -17,17 +17,20 @@ fn test_intercom() {
 	env_logger::init().unwrap();
 
 	spawn(|| {
-		let args = vec!["intercom", "org.manuel.TestIntercom1", "private-key1"];
-		let args:Vec<String> = args.iter()
+		let args = "intercom --private-key ./private-key1 --dbus org.manuel.TestIntercom1";
+		let args:Vec<String> = args.split(" ")
 			.map(|s| s.to_string())
 			.collect();
+		assert_eq!(args, vec!["intercom","--private-key","./private-key1","--dbus","org.manuel.TestIntercom1"]);
 		start_intercom(args.into_iter());
 	});
-	spawn(|| {
-		let args = vec!["intercom", "org.manuel.TestIntercom2", "private-key2"];
-		let args:Vec<String> = args.iter()
+		let args = "intercom --private-key ./private-key2 --dbus org.manuel.TestIntercom2";
+		let args:Vec<String> = args.split(" ")
 			.map(|s| s.to_string())
 			.collect();
+		debug!("{:?}", args);
+	spawn(|| {
+
 		start_intercom(args.into_iter());
 	});
 	sleep_ms(1000);
@@ -46,7 +49,7 @@ fn test_intercom() {
 		                   MessageItem::Str(app_id.to_string()), MessageItem::UInt32(2*60)]);
 		let mut reply = conn.send_with_reply_and_block(msg, 2*60*1000).unwrap();
 		match reply.get_items().pop().unwrap() {
-			MessageItem::UnixFd(fd) => {
+			MessageItem::UnixFd(fd) => { 
 				let fd = fd.into_fd();
 
 				let buf = "foo".as_bytes();

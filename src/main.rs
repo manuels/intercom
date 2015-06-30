@@ -10,6 +10,7 @@ extern crate byteorder;
 extern crate env_logger;
 extern crate pseudotcp;
 extern crate rustc_serialize;
+extern crate docopt;
 
 #[cfg(feature="dbus")]
 extern crate dbus;
@@ -18,6 +19,7 @@ extern crate dbus;
 use std::env;
 use std::io::Read;
 
+use docopt::Docopt;
 use std::fs::File;
 
 #[cfg(feature="dbus")]
@@ -39,6 +41,21 @@ use dbus::BusType;
 
 use intercom::Intercom;
 
+static USAGE: &'static str = "
+Usage: intercom [options]
+
+Options:
+    --private-key <file>   Use private key from a file
+                           [default: ~/.config/intercom/private_key].
+    --dbus <service>       DBus service name [default: org.manuel.intercom].
+";
+
+#[derive(RustcDecodable,Debug)]
+struct Args {
+  flag_private_key: Option<String>,
+  flag_dbus:        Option<String>,
+}
+
 #[cfg(not(test))]
 fn main() {
 	env_logger::init().unwrap();
@@ -46,15 +63,18 @@ fn main() {
 	start_intercom(env::args());
 }
 
-fn start_intercom<I:Iterator<Item=String>>(mut args: I) {
-	args.next();
-	let dbus_path = args.next().unwrap();
-	let local_private_key = args.next().unwrap();
+fn start_intercom<I:Iterator<Item=String>>(args: I) {
+	let args: Args = Docopt::new(USAGE)
+	                  .and_then(|d| d.argv(args).decode())
+	                  .unwrap_or_else(|e| e.exit());
 
-	let mut file = File::open(local_private_key).unwrap();
+	let dbus_service      = args.flag_dbus.unwrap_or("org.manuel.intercom".to_string());
+	let private_key_fname = args.flag_private_key.unwrap_or("~/.config/intercom/private_key".to_string());
+
+	let mut file = File::open(private_key_fname).unwrap();
 	let mut local_private_key = String::new();
 	file.read_to_string(&mut local_private_key).unwrap();
 
 	let intercom = Intercom::new(&local_private_key.into_bytes()).unwrap();
-	DBusService::serve(intercom, &dbus_path[..], BusType::Session).unwrap();
+	DBusService::serve(intercom, &dbus_service[..], BusType::Session).unwrap();
 }
