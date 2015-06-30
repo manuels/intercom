@@ -48,6 +48,7 @@ Options:
     --private-key <file>   Use private key from a file
                            [default: ~/.config/intercom/private_key].
     --dbus <service>       DBus service name [default: org.manuel.intercom].
+    --help                 Print this help.
 ";
 
 #[derive(RustcDecodable,Debug)]
