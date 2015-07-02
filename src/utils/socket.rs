@@ -1,6 +1,7 @@
 use libc::types::os::arch::c95::{c_int,size_t};
 use libc::types::common::c95::c_void;
 use libc::funcs::bsd43::{send,recv};
+use libc::funcs::posix88::unistd::close;
 use std::io::{Error, Result, ErrorKind};
 use std::io::{Read,Write};
 use std::sync::mpsc::{Sender,Receiver};
@@ -9,6 +10,7 @@ use std::thread;
 use std::os::unix::io::{AsRawFd,RawFd};
 
 use libc::consts::os::bsd44::AF_UNIX;
+use libc::consts::os::bsd44::SOCK_STREAM;
 
 use utils::duplex_channel;
 use syscalls;
@@ -53,13 +55,21 @@ impl ChannelToSocket {
 				};
 				debug!("ChannelToSocket sock-to-tx recv()'d fd={} len={}", fd_read, len);
 
+				if typ == SOCK_STREAM && len == 0 {
+					debug!("Socket closed by us.");
+					unsafe { close(fd_read); }
+					break;
+				}
+
 				if len != -1 {
 					buf.truncate(len as usize);
 					
 					if tx.send(buf).is_err() {
-						error!("Could not forward data from fd={} to fd={}", fd_read, fd_other);
+						unsafe { close(fd_read) };
+						panic!("Could not forward data from fd={} to fd={}", fd_read, fd_other);
 					}
 				} else {
+					unsafe { close(fd_read) };
 					panic!(Error::last_os_error());
 				}
 			}
@@ -75,9 +85,11 @@ impl ChannelToSocket {
 
 				if (len as usize) != buf.len() {
 					if len < 0 {
+						unsafe { close(fd_write) };
 						panic!(Error::last_os_error());
 					} else {
 						let msg = format!("rx-to-sock Could not send full buffer! fd={} (only {} instead of {}", fd_write, len, buf.len());
+						unsafe { close(fd_write) };
 						panic!(Error::new(ErrorKind::Other, &msg[..]));
 					}
 				}

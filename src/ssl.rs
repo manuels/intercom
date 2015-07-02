@@ -96,18 +96,6 @@ impl SslChannel
 				let mut buf = vec![0; 16*1024];
 				debug!("{} SSL_read: wait 1/2", is_server);
 
-				let mut blk = || {
-					let mut s = stream.lock().unwrap();
-
-					let len = s.read(&mut buf[..]).unwrap();
-					debug!("{} SSL_read: done (len={}) 2/2", is_server, len);
-
-					if len > 0 {
-						buf.truncate(len);
-						plaintext_tx.send(buf.clone()).unwrap();
-					}
-				};
-
 				let &(ref lock, ref cvar) = &*is_readable;
 
 				let mut readable = lock.lock().unwrap();
@@ -119,7 +107,18 @@ impl SslChannel
 				}
 				drop(s);
 
-				blk();
+				let mut s = stream.lock().unwrap();
+
+				let len = s.read(&mut buf[..]).unwrap();
+				debug!("{} SSL_read: done (len={}) 2/2", is_server, len);
+
+				if len > 0 {
+					buf.truncate(len);
+
+					if plaintext_tx.send(buf.clone()).is_err() {
+						break
+					}
+				}
 
 				*readable = false;
 			}

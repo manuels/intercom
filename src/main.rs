@@ -34,6 +34,9 @@ mod shared_secret;
 #[cfg(test)]
 mod tests;
 
+use ecdh::private_key::PrivateKey;
+use std::io::Write;
+
 #[cfg(feature="dbus")]
 use dbus_service::DBusService;
 #[cfg(feature="dbus")]
@@ -46,7 +49,7 @@ Usage: intercom [options]
 
 Options:
     --private-key <file>   Use private key from a file
-                           [default: ~/.config/intercom/private_key].
+                           [default: $HOME/.config/intercom/private_key].
     --dbus <service>       DBus service name [default: org.manuel.intercom].
     --help                 Print this help.
 ";
@@ -70,12 +73,31 @@ fn start_intercom<I:Iterator<Item=String>>(args: I) {
 	                  .unwrap_or_else(|e| e.exit());
 
 	let dbus_service      = args.flag_dbus.unwrap_or("org.manuel.intercom".to_string());
-	let private_key_fname = args.flag_private_key.unwrap_or("~/.config/intercom/private_key".to_string());
+	let private_key_fname = args.flag_private_key.unwrap_or("/home/manuel/.config/intercom/private_key".to_string());
 
-	let mut file = File::open(private_key_fname).unwrap();
-	let mut local_private_key = String::new();
-	file.read_to_string(&mut local_private_key).unwrap();
+	let mut file = File::open(private_key_fname.clone())
+	                    .map_err(|e| error!("Could not read private key file '{}': {:?}", private_key_fname, e))
+	                    .unwrap();
+/*
+	let mut file = File::create(private_key_fname.clone())
+	                    .map_err(|e| error!("Could not read private key file '{}': {:?}", private_key_fname, e))
+	                    .unwrap();
+	let key = PrivateKey::generate().unwrap();
+	file.write(&key.to_vec()[..]).unwrap();
+	drop(file);
 
-	let intercom = Intercom::new(&local_private_key.into_bytes()).unwrap();
+	let mut file = File::create("/tmp/pub")
+	                    .unwrap();
+	let key = key.get_public_key();
+	file.write(&key.to_vec()[..]).unwrap();
+	drop(file);
+	unimplemented!();
+*/
+
+	let mut local_private_key = vec![0; 1024];
+	let len = file.read(&mut local_private_key[..]).unwrap();
+	local_private_key.truncate(len);
+
+	let intercom = Intercom::new(&local_private_key).unwrap();
 	DBusService::serve(intercom, &dbus_service[..], BusType::Session).unwrap();
 }

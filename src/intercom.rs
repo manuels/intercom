@@ -56,9 +56,7 @@ fn convert_public_key(key: &ecdh::PublicKey) -> PKey {
 
 impl Intercom {
 	pub fn new(local_private_key: &Vec<u8>) -> Result<Intercom,()> {
-		let local_private_key = String::from_utf8(local_private_key.clone()).unwrap();
-		let local_private_key = (&local_private_key[..]).from_hex().map_err(|_| ())
-			.and_then(|v| ecdh::PrivateKey::from_vec(&v).map_err(|_| ()))
+		let local_private_key = ecdh::PrivateKey::from_vec(&local_private_key).map_err(|_| ())
 			.unwrap_or_else(|_| ecdh::PrivateKey::generate().unwrap()); // TODO: just generate a new key?! really!?
 
 		let local_public_key = local_private_key.get_public_key();
