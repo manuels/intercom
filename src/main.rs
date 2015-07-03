@@ -21,6 +21,7 @@ use std::io::Read;
 
 use docopt::Docopt;
 use std::fs::File;
+use std::os::unix::fs::PermissionsExt;
 
 #[cfg(feature="dbus")]
 mod dbus_service;
@@ -34,8 +35,7 @@ mod shared_secret;
 #[cfg(test)]
 mod tests;
 
-use ecdh::private_key::PrivateKey;
-use std::io::Write;
+use std::path::PathBuf;
 
 #[cfg(feature="dbus")]
 use dbus_service::DBusService;
@@ -43,13 +43,14 @@ use dbus_service::DBusService;
 use dbus::BusType;
 
 use intercom::Intercom;
+use utils::ResultExpect;
 
 static USAGE: &'static str = "
 Usage: intercom [options]
 
 Options:
     --private-key <file>   Use private key from a file
-                           [default: $HOME/.config/intercom/private_key].
+                           (default: $HOME/.config/intercom/private_key).
     --dbus <service>       DBus service name [default: org.manuel.intercom].
     --help                 Print this help.
 ";
@@ -57,7 +58,7 @@ Options:
 #[derive(RustcDecodable,Debug)]
 struct Args {
   flag_private_key: Option<String>,
-  flag_dbus:        Option<String>,
+  flag_dbus:        String,
 }
 
 #[cfg(not(test))]
@@ -68,36 +69,37 @@ fn main() {
 }
 
 fn start_intercom<I:Iterator<Item=String>>(args: I) {
+	let mut home = std::env::home_dir()
+	                    .unwrap_or(PathBuf::from("/tmp/"));
+
 	let args: Args = Docopt::new(USAGE)
 	                  .and_then(|d| d.argv(args).decode())
 	                  .unwrap_or_else(|e| e.exit());
 
-	let dbus_service      = args.flag_dbus.unwrap_or("org.manuel.intercom".to_string());
-	let private_key_fname = args.flag_private_key.unwrap_or("/home/manuel/.config/intercom/private_key".to_string());
+	let private_key_fname = args.flag_private_key
+		.unwrap_or_else(|| {
+			home.push(".config/intercom/private_key".to_string());
+			home.as_path().to_str().unwrap().to_string()
+		});
 
 	let mut file = File::open(private_key_fname.clone())
-	                    .map_err(|e| error!("Could not read private key file '{}': {:?}", private_key_fname, e))
-	                    .unwrap();
-/*
-	let mut file = File::create(private_key_fname.clone())
-	                    .map_err(|e| error!("Could not read private key file '{}': {:?}", private_key_fname, e))
-	                    .unwrap();
-	let key = PrivateKey::generate().unwrap();
-	file.write(&key.to_vec()[..]).unwrap();
-	drop(file);
+	                    .expect(&format!("Could not open private key file '{}'", private_key_fname)[..]);
 
-	let mut file = File::create("/tmp/pub")
-	                    .unwrap();
-	let key = key.get_public_key();
-	file.write(&key.to_vec()[..]).unwrap();
-	drop(file);
-	unimplemented!();
-*/
+	let metadata = file.metadata().expect(&format!("Error reading permissions for '{}'", private_key_fname)[..]);
+	if metadata.permissions().mode() != 0o400 {
+		error!("Your private key file '{}' has {:o} permissions! It should be 400",
+			private_key_fname, metadata.permissions().mode());
+		return
+	}
 
 	let mut local_private_key = vec![0; 1024];
-	let len = file.read(&mut local_private_key[..]).unwrap();
+	let len = file.read(&mut local_private_key[..])
+	              .expect(&format!("Could not read private key file '{}'", private_key_fname)[..]);
 	local_private_key.truncate(len);
 
 	let intercom = Intercom::new(&local_private_key).unwrap();
-	DBusService::serve(intercom, &dbus_service[..], BusType::Session).unwrap();
+
+	let dbus_service = args.flag_dbus;
+	DBusService::serve(intercom, &dbus_service[..], BusType::Session)
+		.expect("Error listening on DBus");
 }

@@ -1,4 +1,5 @@
 use std::sync::{Arc,Mutex};
+use std::io;
 use std::io::{Read,Write};
 use std::sync::mpsc::{Sender,Receiver};
 use std::sync::mpsc::channel;
@@ -33,7 +34,8 @@ impl SslChannel
 		let (ciphertext_rx, is_readable) = IsReadable::new(ciphertext_rx);
 		
 		let ciphertext = ChannelToSocket::new_from(SOCK_DGRAM, 0, 
-			(ciphertext_tx, ciphertext_rx)).unwrap();
+			(ciphertext_tx, ciphertext_rx))
+			.ok().expect("Creating ChannelToSocket failed");
 
 		let (plaintext_tx,  plaintext_rx) = plaintext_ch;
 
@@ -55,46 +57,43 @@ impl SslChannel
 		};
 		syscalls::set_blocking(ciphertext_fd, false).unwrap();
 
-		channel.spawn_read(plaintext_tx, is_readable);
-		channel.spawn_write(plaintext_rx);
+		channel.spawn_read(plaintext_tx, is_readable).unwrap();
+		channel.spawn_write(plaintext_rx).unwrap();
 
 		Ok(channel)
 	}
 
-	fn spawn_write(&self,
-	               plaintext_rx:  Receiver<Vec<u8>>)
+	fn spawn_write(&self, plaintext_rx:  Receiver<Vec<u8>>)
+		-> io::Result<thread::JoinHandle<()>>
 	{
 		let stream = self.stream.clone();
 		let is_server = self.is_server;
 
 		thread::Builder::new().name("SslChannel::spawn_write".to_string()).spawn(move || {
 			for buf in plaintext_rx.iter() {
-				debug!("{} plaintext_rx {} 1/3", is_server, buf.len());
 				let mut s = stream.lock().unwrap();
 
-				debug!("{} plaintext_rx calling SSL_write... 2/3", is_server);
-				let len = (*s).write(&buf[..]).unwrap(); // blocking?
+				let len = (*s).write(&buf[..]).unwrap();
 				(*s).flush().unwrap();
 
-				debug!("{} plaintext_rx SSL_written len={}, buf.len={} 3/3", is_server, len, buf.len());
+				debug!("{} plaintext_rx SSL_written len={}, buf.len={}", is_server, len, buf.len());
 				assert_eq!(len, buf.len())
 			}
 			panic!("fin");
-		}).unwrap();
+		})
 	}
 
 	fn spawn_read(&self,
 	              plaintext_tx: Sender<Vec<u8>>,
 	              is_readable:  IsReadable)
+		-> io::Result<thread::JoinHandle<()>>
 	{
 		let stream = self.stream.clone();
-		let is_server = self.is_server;
 
 		let is_readable = is_readable.unpack();
 		thread::Builder::new().name("SslChannel::spawn_read".to_string()).spawn(move || {
 			loop {
 				let mut buf = vec![0; 16*1024];
-				debug!("{} SSL_read: wait 1/2", is_server);
 
 				let &(ref lock, ref cvar) = &*is_readable;
 
@@ -110,7 +109,6 @@ impl SslChannel
 				let mut s = stream.lock().unwrap();
 
 				let len = s.read(&mut buf[..]).unwrap();
-				debug!("{} SSL_read: done (len={}) 2/2", is_server, len);
 
 				if len > 0 {
 					buf.truncate(len);
@@ -122,6 +120,6 @@ impl SslChannel
 
 				*readable = false;
 			}
-		}).unwrap();
+		})
 	}
 }

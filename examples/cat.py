@@ -1,7 +1,5 @@
 #!/usr/bin/env python
 
-# !!! DOES NOT WORK YET !!!
-
 import sys
 import dbus
 import socket
@@ -21,7 +19,7 @@ timeout_sec = dbus.UInt32(5*60)
 
 result = intercom.Connect(domain, public_key, app_id, timeout_sec, dbus_interface='org.manuel.Intercom', timeout=5*60)
 fd     = result.take()
-sock   = socket.fromfd(fd, socket.AF_UNIX, socket.SOCK_DGRAM, 0)
+sock   = socket.fromfd(fd, socket.AF_UNIX, socket.SOCK_STREAM, 0)
 
 print 'SOCKET OPEN'
 

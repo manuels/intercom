@@ -60,13 +60,11 @@ impl Intercom {
 			.unwrap_or_else(|_| ecdh::PrivateKey::generate().unwrap()); // TODO: just generate a new key?! really!?
 
 		let local_public_key = local_private_key.get_public_key();
-		debug!("My private key is: {:?}", local_private_key.to_vec().to_hex());
 		debug!("My public key is: {:?}", local_public_key.to_vec().to_hex());
 
 		Ok(Intercom {
 			local_private_key: local_private_key
 		})
-		
 	}
 
 	pub fn connect(&self, socket_type: i32, remote_public_key: String, 
@@ -85,7 +83,7 @@ impl Intercom {
 		let private_key = convert_private_key(&self.local_private_key).unwrap();
 		let public_key = convert_public_key(&remote_public_key);
 		let mut conn = try!(Connection::new(socket_type, private_key, public_key,
-			                           controlling_mode));
+		                                    controlling_mode));
 
 		let dht_key = Self::generate_dht_key(app_id.clone(),
 		                            &self.local_private_key, &remote_public_key);
@@ -141,13 +139,16 @@ impl Intercom {
 			.chain(app_id.into_bytes().into_iter())
 			.collect();
 
-		let conn = DbusConnection::get_private(BusType::Session).unwrap();
-		let mut msg = Message::new_method_call("org.manuel.BulletinBoard", "/",
-			"org.manuel.BulletinBoard", "Get").unwrap();
-		let app_id = MessageItem::Str(BULLETIN_BOARD_ID.to_string());
+		let session = BusType::Session;
+		let conn    = DbusConnection::get_private(session).unwrap();
+		let app_id  = MessageItem::Str(BULLETIN_BOARD_ID.to_string());
+		let mut msg = Message::new_method_call("org.manuel.BulletinBoard",
+		                                       "/",
+		                                       "org.manuel.BulletinBoard",
+		                                       "Get").unwrap();
 		msg.append_items(&[app_id, key.to_dbus_item()]);
 		let mut reply = try!(conn.send_with_reply_and_block(msg, 60000)
-			.map_err(|e| {info!("{:?}", e); ConnectError::DHTError}));
+		                         .map_err(|e| {info!("{:?}", e); ConnectError::DHTError}));
 
 		match reply.get_items().get(0) {
 			Some(&MessageItem::Array(ref items, ref t)) if t == "ay" => {
@@ -156,8 +157,7 @@ impl Intercom {
 				info!("Found {} potential remote credentials.", items.len());
 				let mut values:Vec<Vec<u8>> = items.iter()
 					.map(|item| Vec::<u8>::from_dbus_item(item).and_then(&decrypt))
-					.filter(Option::is_some)
-					.map(Option::unwrap)
+					.filter_map(|o| o)
 					.filter(|vec| vec.len() > TIME_LEN)
 					.collect();
 
@@ -224,8 +224,9 @@ impl Intercom {
 	                       local_credentials: String)
 		-> Result<(Vec<u8>),ConnectError>
 	{
-		let mut plaintext_value = Cursor::new(vec![]);
 		let now = time::now_utc().to_timespec();
+
+		let mut plaintext_value = Cursor::new(vec![]);
 		plaintext_value.write_i64::<LittleEndian>(now.sec).unwrap();
 		plaintext_value.write(&local_credentials.into_bytes()[..]).unwrap();
 
