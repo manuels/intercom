@@ -67,28 +67,37 @@ impl Intercom {
 		})
 	}
 
-	pub fn connect(&self, socket_type: i32, remote_public_key: String, 
-	               app_id: String,  timeout: Duration)
+	pub fn connect_to_key(&self,
+	                      socket_type:       i32,
+	                      remote_public_key: String,
+	                      local_app_id:      String,
+	                      remote_app_id:     String,
+	                      timeout:           Duration)
 		-> Result<RawFd, ConnectError>
 	{
 		debug!("remote_public_key[..].from_hex()={:?}",remote_public_key[..].from_hex());
 		let remote_public_key = remote_public_key[..].from_hex().unwrap();
 		let remote_public_key = ecdh::PublicKey::from_vec(&remote_public_key).unwrap();
 
-		let shared_secret = SharedSecret::new(&self.local_private_key, &remote_public_key);
+		let shared_secret = SharedSecret::new(&self.local_private_key,
+		                                      &remote_public_key);
 
 		let local_public_key = self.local_private_key.get_public_key();
 		let controlling_mode = local_public_key.to_vec() > remote_public_key.to_vec();
 
 		let private_key = convert_private_key(&self.local_private_key).unwrap();
 		let public_key = convert_public_key(&remote_public_key);
-		let mut conn = try!(Connection::new(socket_type, private_key, public_key,
+
+		let mut conn = try!(Connection::new(socket_type,
+		                                    private_key,
+		                                    public_key,
 		                                    controlling_mode));
 
-		let dht_key = Self::generate_dht_key(app_id.clone(),
-		                            &self.local_private_key, &remote_public_key);
+		let local_dht_key = Self::generate_dht_key(local_app_id.clone(),
+		                                           &self.local_private_key,
+		                                           &remote_public_key);
 
-		let local_credentials = conn.get_local_credentials();
+		let local_credentials     = conn.get_local_credentials();
 		let shared_secret_publish = shared_secret.clone();
 		
 		let continue_publishing = Arc::new(Mutex::new(true));
@@ -98,14 +107,16 @@ impl Intercom {
 			let continue_publishing = cont;
 			let shared_secret = shared_secret_publish;
 
-			Self::publish_credentials(dht_key.clone(), &shared_secret,
-				local_credentials.clone()).unwrap();
+			Self::publish_credentials(local_dht_key.clone(),
+			                          &shared_secret,
+			                          local_credentials.clone()).unwrap();
 			sleep_ms(15*1000);
 
 			while *continue_publishing.lock().unwrap() {
 				debug!("publishing {:?}", local_credentials);
-				Self::publish_credentials(dht_key.clone(), &shared_secret,
-					local_credentials.clone()).unwrap();
+				Self::publish_credentials(local_dht_key.clone(),
+				                          &shared_secret,
+				                          local_credentials.clone()).unwrap();
 				debug!("published");
 
 				sleep_ms(60*1000);
@@ -116,7 +127,7 @@ impl Intercom {
 		let result = retry(timeout, retry_time, || {
 			debug!("retrying");
 			let remote_credentials = try!(self.get_remote_credentials(&shared_secret,
-				app_id.clone(), &remote_public_key));
+				remote_app_id.clone(), &remote_public_key));
 			info!("server={:?} remote credentials are {:?}", controlling_mode, String::from_utf8(remote_credentials.clone()));
 
 			let fd = try!(conn.establish_connection(remote_credentials));
@@ -134,6 +145,7 @@ impl Intercom {
 		-> Result<Vec<u8>,ConnectError>
 	{
 		let local_public_key = self.local_private_key.get_public_key();
+
 		let key:Vec<u8> = remote_public_key.to_vec().into_iter()
 			.chain(local_public_key.to_vec().into_iter())
 			.chain(app_id.into_bytes().into_iter())

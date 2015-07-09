@@ -39,14 +39,19 @@ fn test_intercom() {
 	let public_key2 = "030184408030d8307535e48a9d499b25cef86c3a68ae2dcef6366acc433c840d74907e94cb0a65390569905735c676abc0d90f8f974f2dac66edbca38e3fd153d4743c";
 
 	let sock_type = SOCK_STREAM;//SOCK_DGRAM;
-	let app_id = "test";
+	let app_id1 = "test1";
+	let app_id2 = "test2";
 
 	spawn(move || {
 		let conn = DbusConnection::get_private(BusType::Session).unwrap();
 		let mut msg = Message::new_method_call("org.manuel.TestIntercom1", "/",
-		                                       "org.manuel.Intercom", "Connect").unwrap();
-		msg.append_items(&[MessageItem::Int32(sock_type), MessageItem::Str(public_key2.to_string()),
-		                   MessageItem::Str(app_id.to_string()), MessageItem::UInt32(2*60)]);
+		                                       "org.manuel.Intercom", "ConnectToKey").unwrap();
+		msg.append_items(&[MessageItem::Int32(sock_type),
+		                   MessageItem::Str(public_key2.to_string()),
+		                   MessageItem::Str(app_id2.to_string()),
+		                   MessageItem::Str(app_id1.to_string()),
+		                   MessageItem::UInt32(2*60)]);
+
 		let mut reply = conn.send_with_reply_and_block(msg, 2*60*1000).unwrap();
 		match reply.get_items().pop().unwrap() {
 			MessageItem::UnixFd(fd) => { 
@@ -66,9 +71,13 @@ fn test_intercom() {
 
 	let conn = DbusConnection::get_private(BusType::Session).unwrap();
 	let mut msg = Message::new_method_call("org.manuel.TestIntercom2", "/",
-	                                       "org.manuel.Intercom", "Connect").unwrap();
-	msg.append_items(&[MessageItem::Int32(sock_type), MessageItem::Str(public_key1.to_string()),
-	                   MessageItem::Str(app_id.to_string()), MessageItem::UInt32(2*60)]);
+	                                       "org.manuel.Intercom", "ConnectToKey").unwrap();
+	msg.append_items(&[MessageItem::Int32(sock_type),
+	                   MessageItem::Str(public_key1.to_string()),
+	                   MessageItem::Str(app_id1.to_string()),
+	                   MessageItem::Str(app_id2.to_string()),
+	                   MessageItem::UInt32(2*60)]);
+
 	let mut reply = conn.send_with_reply_and_block(msg, 2*60*1000).unwrap();
 	match reply.get_items().pop().unwrap() {
 		MessageItem::UnixFd(fd) => {

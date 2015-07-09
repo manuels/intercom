@@ -36,12 +36,12 @@ mod parse_hosts;
 #[cfg(test)]
 mod tests;
 
-use std::path::PathBuf;
-
 #[cfg(feature="dbus")]
 use dbus_service::DBusService;
 #[cfg(feature="dbus")]
 use dbus::BusType;
+
+use std::sync::Arc;
 
 use intercom::Intercom;
 use utils::ResultExpect;
@@ -110,6 +110,6 @@ fn start_intercom<I:Iterator<Item=String>>(args: I) {
 	let intercom = Intercom::new(&local_private_key).unwrap();
 
 	let dbus_service = args.flag_dbus;
-	DBusService::serve(intercom, &dbus_service[..], BusType::Session)
+	DBusService::serve(Arc::new(intercom), &dbus_service[..], BusType::Session)
 		.expect("Error listening on DBus");
 }
