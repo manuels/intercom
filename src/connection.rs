@@ -2,7 +2,6 @@
 use std::sync::{Arc,Mutex,Condvar};
 use std::sync::mpsc::{Sender,Receiver};
 use std::os::unix::io::{RawFd,AsRawFd};
-use std::thread::spawn;
 
 use libc::consts::os::bsd44::SOCK_STREAM;
 use openssl::x509::X509StoreContext;
@@ -33,6 +32,7 @@ pub struct Connection {
 	local_private_key: PKey,
 	remote_public_key: Arc<PKey>,
 	local_credentials: Arc<(Mutex<Option<String>>, Condvar)>,
+	tcp_stream:        Option<PseudoTcpStream>,
 }
 
 impl Connection {
@@ -53,6 +53,7 @@ impl Connection {
 			local_private_key: local_private_key,
 			remote_public_key: Arc::new(remote_public_key),
 			local_credentials: Arc::new((Mutex::new(None),Condvar::new())),
+			tcp_stream:        None,
 		};
 
 		// TODO: async
@@ -73,7 +74,7 @@ impl Connection {
 		let usage = [ExtKeyUsage::ClientAuth, ExtKeyUsage::ServerAuth];
 
 		let gen = X509Generator::new()
-			.set_valid_period(365)
+			.set_valid_period(1) // days
 			.set_sign_hash(SHA512)
 			.set_usage(&[KeyUsage::KeyAgreement])
 			.set_ext_usage(&usage);
@@ -104,29 +105,26 @@ impl Connection {
 		                            .map_err(|e| ConnectError::SslError(e)));
 
 		let proto = 0;
-		let ch = match self.socket_type {
-			SOCK_STREAM => {
-				let (plain_tx, plain_rx) = plaintext_ch;
-				let ((stream_tx,stream_rx), socket_ch) = duplex_channel();
+		let ch = if self.socket_type != SOCK_STREAM {
+			plaintext_ch
+		} else {
+			let (plain_tx, plain_rx) = plaintext_ch;
+			let ((stream_tx,stream_rx), socket_ch) = duplex_channel();
 
-				let stream = PseudoTcpStream::new_from(plain_tx, plain_rx,
-				                                       stream_tx, stream_rx);
+			let stream = PseudoTcpStream::new_from(plain_tx, plain_rx,
+			                                       stream_tx, stream_rx);
+			stream.set_mtu(1400);
+			//stream.set_no_delay(true);
 
-				if self.controlling_mode {
-					let res = stream.connect();
-					let err = "Could not establish reliable connection";
-					try!(res.map_err(|_| ConnectError::Internal(err)));
-				}
+			if self.controlling_mode {
+				let res = stream.connect();
+				let err = "Could not establish reliable connection";
+				try!(res.map_err(|_| ConnectError::Internal(err)));
+			}
 
-				spawn(move || {
-					// TODO: keep stream better alive!
-					loop {};
-					drop(stream);
-				});
+			self.tcp_stream = Some(stream);
 
-				socket_ch
-			},
-			_ => plaintext_ch,
+			socket_ch
 		};
 
 		let sock = try!(ChannelToSocket::new_from(self.socket_type, proto, ch)
@@ -179,7 +177,7 @@ impl Connection {
 		info!("ssl x509 callback");
 
 		match x509_ctx.get_current_cert() {
-			None => false,
+			None => return false,
 			Some(cert) => {
 				let actual_key = cert.public_key();
 

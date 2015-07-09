@@ -32,6 +32,7 @@ mod ssl;
 mod intercom;
 mod connection;
 mod shared_secret;
+mod parse_hosts;
 #[cfg(test)]
 mod tests;
 
@@ -52,12 +53,15 @@ Options:
     --private-key <file>   Use private key from a file
                            (default: $HOME/.config/intercom/private_key).
     --dbus <service>       DBus service name [default: org.manuel.intercom].
+    --hosts <file>         Use hostnames from a file
+                           (default: $HOME/.config/intercom/hosts).
     --help                 Print this help.
 ";
 
 #[derive(RustcDecodable,Debug)]
 struct Args {
   flag_private_key: Option<String>,
+  flag_hosts:       Option<String>,
   flag_dbus:        String,
 }
 
@@ -69,8 +73,12 @@ fn main() {
 }
 
 fn start_intercom<I:Iterator<Item=String>>(args: I) {
-	let mut home = std::env::home_dir()
-	                    .unwrap_or(PathBuf::from("/tmp/"));
+	let home = std::env::home_dir()
+						.map(|mut p| {
+							p.push(".config/intercom/");
+							p
+						})
+	                    .unwrap();
 
 	let args: Args = Docopt::new(USAGE)
 	                  .and_then(|d| d.argv(args).decode())
@@ -78,16 +86,18 @@ fn start_intercom<I:Iterator<Item=String>>(args: I) {
 
 	let private_key_fname = args.flag_private_key
 		.unwrap_or_else(|| {
-			home.push(".config/intercom/private_key".to_string());
-			home.as_path().to_str().unwrap().to_string()
+			let mut path = home.clone();
+			path.push("private_key".to_string());
+			path.as_path().to_str().unwrap().to_string()
 		});
 
 	let mut file = File::open(private_key_fname.clone())
-	                    .expect(&format!("Could not open private key file '{}'", private_key_fname)[..]);
+	                    .expect(&format!("Could not open private key file '{}'",
+	                    	                          private_key_fname)[..]);
 
 	let metadata = file.metadata().expect(&format!("Error reading permissions for '{}'", private_key_fname)[..]);
 	if metadata.permissions().mode() != 0o400 {
-		error!("Your private key file '{}' has {:o} permissions! It should be 400",
+		error!("Your private key file '{}' has {:o} permissions! It should be 400.",
 			private_key_fname, metadata.permissions().mode());
 		return
 	}
