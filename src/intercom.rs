@@ -1,9 +1,12 @@
 use std::io::Error as IoError;
+use std::error;
 use std::io::{Cursor,Write};
 use std::os::unix::io::RawFd;
 use std::cmp::Ordering;
 use std::thread::{spawn,sleep_ms};
 use std::sync::{Arc,Mutex};
+use std::fmt;
+use std::fmt::{Formatter,Display};
 
 use rustc_serialize::hex::{ToHex,FromHex};
 
@@ -27,14 +30,58 @@ const TIME_LEN: usize = 64/8;
 const BULLETIN_BOARD_ID: &'static str = "intercom_v1";
 
 #[derive(Debug)]
-pub enum ConnectError {
-	RemoteCredentialsNotFound,
-	IceConnectFailed,
-	SslError(SslError),
-	IoError(IoError),
-	DHTError,
-	Internal(&'static str),
-	FOO,
+pub struct ConnectError {
+	pub description: String,
+	pub cause:       Option<Box<error::Error>>,
+}
+
+impl ConnectError {
+	fn new(msg: &str) -> ConnectError {
+		ConnectError {
+			description: msg.to_string(),
+			cause: None,
+		}
+	}
+}
+
+impl Display for ConnectError {
+	fn fmt(&self, fmt: &mut Formatter) -> Result<(), fmt::Error> {
+		write!(fmt, "{:?}", self)
+	}
+}
+
+impl error::Error for ConnectError {
+	fn description(&self) -> &str {
+		&self.description[..]
+	}
+
+	fn cause(&self) -> Option<&error::Error> {
+		self.cause.as_ref()
+		          .map(|e| &**e)
+	}
+}
+
+macro_rules! try_msg {
+	($desc:expr, $expr:expr) => (match $expr {
+		Result::Ok(val)  => val,
+		Result::Err(err) => {
+			let error = ConnectError {
+				description: format!($desc),
+				cause: Some(Box::new(err))
+			};
+			return Err(error);
+		},
+	});
+	($desc:expr, $expr:expr, $val:expr) => (match $expr {
+		Result::Ok(val)  => val,
+		Result::Err(err) => {
+			let error = ConnectError {
+				description: format!($desc),
+				cause: $val
+			};
+			return Err(error);
+		},
+	});
 }
 
 pub struct Intercom {
@@ -159,8 +206,8 @@ impl Intercom {
 		                                       "org.manuel.BulletinBoard",
 		                                       "Get").unwrap();
 		msg.append_items(&[app_id, key.to_dbus_item()]);
-		let mut reply = try!(conn.send_with_reply_and_block(msg, 60000)
-		                         .map_err(|e| {info!("{:?}", e); ConnectError::DHTError}));
+		let mut reply = try_msg!("",
+		                         conn.send_with_reply_and_block(msg, 60000));
 
 		match reply.get_items().get(0) {
 			Some(&MessageItem::Array(ref items, ref t)) if t == "ay" => {
@@ -194,12 +241,12 @@ impl Intercom {
 				});
 
 				match values.pop() {
-					None => Err(ConnectError::RemoteCredentialsNotFound),
+					None => Err(ConnectError::new("Remote credentials not found.")),
 					Some(latest) => {
 						let (timestamp, credentials) = latest.split_at(TIME_LEN);
 
 						match read_age(&timestamp.to_vec()) {
-							None => Err(ConnectError::RemoteCredentialsNotFound),
+							None => Err(ConnectError::new("Remote credentials not found.")),
 							Some(age_sec) => {
 								info!("Lastest remote credentials are {}sec old", age_sec);
 
@@ -211,8 +258,7 @@ impl Intercom {
 				}
 			},
 			_ => {
-				warn!("org.manuel.BulletinBoard.Get() failed!");
-				Err(ConnectError::FOO)
+				Err(ConnectError::new("org.manuel.BulletinBoard.Get() failed!"))
 			},
 		}
 	}
@@ -252,8 +298,8 @@ impl Intercom {
 		msg.append_items(&[app_id,
 		                   dht_key.to_dbus_item(),
 		                   ciphertext_value.to_dbus_item()]);
-		try!(conn.send_with_reply_and_block(msg, 60000)
-			.map_err(|e| {warn!("{:?}", e); ConnectError::DHTError}));
+		try_msg!("org.manuel.BulletinBoard.Put() failed!",
+		         conn.send_with_reply_and_block(msg, 60000));
 
 		Ok(ciphertext_value)
 	}

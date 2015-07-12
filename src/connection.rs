@@ -1,4 +1,3 @@
-//use std::thread::spawn;
 use std::sync::{Arc,Mutex,Condvar};
 use std::sync::mpsc::{Sender,Receiver};
 use std::os::unix::io::{RawFd,AsRawFd};
@@ -18,6 +17,32 @@ use utils::socket::ChannelToSocket;
 use intercom::ConnectError;
 use ice::IceAgent;
 use utils::duplex_channel;
+
+use std::error::Error;
+use std::boxed::Box;
+
+macro_rules! try_msg {
+	($desc:expr, $expr:expr) => (match $expr {
+		Result::Ok(val)  => val,
+		Result::Err(err) => {
+			let error = ConnectError {
+				description: format!($desc),
+				cause: Some(Box::new(err))
+			};
+			return Err(error);
+		},
+	});
+	($desc:expr, $expr:expr, $val:expr) => (match $expr {
+		Result::Ok(val)  => val,
+		Result::Err(err) => {
+			let error = ConnectError {
+				description: format!($desc),
+				cause: $val
+			};
+			return Err(error);
+		},
+	});
+}
 
 const CIPHERS:&'static str = concat!(
 	"ECDHE-ECDSA-AES128-GCM-SHA256,",// won't work with DTLSv1 (but probably with v1.2)
@@ -42,9 +67,8 @@ impl Connection {
 	           controlling_mode:  bool)
 		-> Result<Connection, ConnectError>
 	{
-		let err = "IceAgent::new() failed";
-		let agent = try!(IceAgent::new(controlling_mode)
-		                 .map_err(|_| ConnectError::Internal(err)));
+		let agent = try_msg!("IceAgent::new() failed.",
+		                     IceAgent::new(controlling_mode), None);
 
 		let mut conn = Connection {
 			agent:             agent,
@@ -98,11 +122,11 @@ impl Connection {
 	{
 		let (ciphertext_ch, ice_ch) = duplex_channel();
 		
-		let res = self.agent.stream_to_channel(&remote_credentials, ice_ch);
-		try!(res.map_err(|_| ConnectError::IceConnectFailed));
+		try_msg!("ICE stream_to_channel() failed",
+		         self.agent.stream_to_channel(&remote_credentials, ice_ch), None);
 
-		let plaintext_ch = try!(self.encrypt_connection(ciphertext_ch)
-		                            .map_err(|e| ConnectError::SslError(e)));
+		let plaintext_ch = try_msg!("SSL connection failed.",
+		                            self.encrypt_connection(ciphertext_ch));
 
 		let proto = 0;
 		let ch = if self.socket_type != SOCK_STREAM {
@@ -117,9 +141,8 @@ impl Connection {
 			//stream.set_no_delay(true);
 
 			if self.controlling_mode {
-				let res = stream.connect();
-				let err = "Could not establish reliable connection";
-				try!(res.map_err(|_| ConnectError::Internal(err)));
+				try_msg!("Could not establish reliable connection",
+				         stream.connect());
 			}
 
 			self.tcp_stream = Some(stream);
@@ -127,8 +150,8 @@ impl Connection {
 			socket_ch
 		};
 
-		let sock = try!(ChannelToSocket::new_from(self.socket_type, proto, ch)
-		                                .map_err(|e| ConnectError::IoError(e)));
+		let sock = try_msg!("ChannelToSocket::new_from() failed",
+		                    ChannelToSocket::new_from(self.socket_type, proto, ch));
 		let fd = sock.as_raw_fd();
 
 		debug!("SSL fd={}", fd);
