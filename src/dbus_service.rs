@@ -24,28 +24,26 @@ impl DBusService {
 
 		let mut o = ObjectPath::new(&conn, "/", true);
 		o.insert_interface(INTERFACE, Interface::new(
-			vec![Method::new("ConnectToHost",
-				vec![Argument::new("socket_type",   "i"),
-				     Argument::new("hostname",      "s"),
-				     Argument::new("local_app_id",  "s"),
-				     Argument::new("remote_app_id", "s"),
-				     Argument::new("timeout_sec",   "u"),
-				],
-				vec![Argument::new("fd", "h")],
-				Box::new(move |msg| Self::connect_to_host(i1.clone(), msg))
-			)],
-			vec![], vec![]));
-		o.insert_interface(INTERFACE, Interface::new(
-			vec![Method::new("ConnectToKey",
-				vec![Argument::new("socket_type",       "i"),
-				     Argument::new("remote_public_key", "s"),
-				     Argument::new("local_app_id",      "s"),
-				     Argument::new("remote_app_id",     "s"),
-				     Argument::new("timeout_sec",       "u"),
-				],
-				vec![Argument::new("fd", "h")],
-				Box::new(move |msg| Self::connect_to_key(i2.clone(), msg))
-			)],
+			vec![
+				Method::new("ConnectToHost",
+					vec![Argument::new("socket_type",   "i"),
+					     Argument::new("hostname",      "s"),
+					     Argument::new("local_app_id",  "s"),
+					     Argument::new("remote_app_id", "s"),
+					     Argument::new("timeout_sec",   "u"),
+					],
+					vec![Argument::new("fd", "h")],
+					Box::new(move |msg| Self::connect_to_host(i1.clone(), msg))),
+				Method::new("ConnectToKey",
+					vec![Argument::new("socket_type",       "i"),
+					     Argument::new("remote_public_key", "s"),
+					     Argument::new("local_app_id",      "s"),
+					     Argument::new("remote_app_id",     "s"),
+					     Argument::new("timeout_sec",       "u"),
+					],
+					vec![Argument::new("fd", "h")],
+					Box::new(move |msg| Self::connect_to_key(i2.clone(), msg)))
+			],
 			vec![], vec![]));
 		try!(o.set_registered(true));
 
