@@ -1,4 +1,3 @@
-use std::thread::spawn;
 use std::sync::Arc;
 
 use time::Duration;
@@ -59,6 +58,8 @@ impl DBusService {
 		Ok(())
 	}
 
+	#[allow(unused_variables)]
+	#[allow(dead_code)]
 	fn connect_to_host(intercom: Arc<Intercom>, msg: &mut Message)
 		-> Result<Vec<MessageItem>, (&'static str, String)>
 	{

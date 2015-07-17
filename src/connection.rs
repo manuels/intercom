@@ -10,7 +10,7 @@ use openssl::ssl::error::SslError;
 use openssl::ssl;
 use openssl::crypto::hash::Type::SHA512;
 use openssl::x509::{X509,X509Generator,KeyUsage,ExtKeyUsage};
-use pseudotcp::PseudoTcpStream;
+use pseudotcp::PseudoTcpSocket;
 
 use ssl::SslChannel;
 use utils::socket::ChannelToSocket;
@@ -18,8 +18,6 @@ use intercom::ConnectError;
 use ice::IceAgent;
 use utils::duplex_channel;
 
-use std::error::Error;
-use std::boxed::Box;
 
 macro_rules! try_msg {
 	($desc:expr, $expr:expr) => (match $expr {
@@ -34,7 +32,7 @@ macro_rules! try_msg {
 	});
 	($desc:expr, $expr:expr, $val:expr) => (match $expr {
 		Result::Ok(val)  => val,
-		Result::Err(err) => {
+		Result::Err(_) => {
 			let error = ConnectError {
 				description: format!($desc),
 				cause: $val
@@ -44,11 +42,19 @@ macro_rules! try_msg {
 	});
 }
 
-const CIPHERS:&'static str = concat!(
-	"ECDHE-ECDSA-AES128-GCM-SHA256,",// won't work with DTLSv1 (but probably with v1.2)
-	"ECDHE-ECDSA-AES128-SHA256,",// won't work with DTLSv1 (but probably with v1.2)
-	"ECDHE-ECDSA-AES128-SHA,",   // won't work with DTLSv1 (but probably with v1.2)
-	"ECDH-ECDSA-AES128-SHA");    // <- this one is probably used
+const CIPHERS:[&'static str; 12] = [
+	"ECDHE-ECDSA-AES256-GCM-SHA386",// these won't work with DTLSv1 (but probably with v1.2)
+	"ECDHE-ECDSA-AES256-GCM-SHA256",
+	"ECDHE-ECDSA-AES128-GCM-SHA386",
+	"ECDHE-ECDSA-AES128-GCM-SHA256",
+	"ECDHE-ECDSA-AES256-SHA386",
+	"ECDHE-ECDSA-AES256-SHA256",
+	"ECDHE-ECDSA-AES128-SHA386",
+	"ECDHE-ECDSA-AES128-SHA256",
+	"ECDHE-ECDSA-AES256-SHA",
+	"ECDHE-ECDSA-AES128-SHA",
+	"ECDH-ECDSA-AES256-SHA",
+	"ECDH-ECDSA-AES128-SHA"];    // <- this one is probably used
 
 pub struct Connection {
 	agent:             IceAgent,
@@ -57,7 +63,6 @@ pub struct Connection {
 	local_private_key: PKey,
 	remote_public_key: Arc<PKey>,
 	local_credentials: Arc<(Mutex<Option<String>>, Condvar)>,
-	tcp_stream:        Option<PseudoTcpStream>,
 }
 
 impl Connection {
@@ -77,7 +82,6 @@ impl Connection {
 			local_private_key: local_private_key,
 			remote_public_key: Arc::new(remote_public_key),
 			local_credentials: Arc::new((Mutex::new(None),Condvar::new())),
-			tcp_stream:        None,
 		};
 
 		// TODO: async
@@ -132,22 +136,18 @@ impl Connection {
 		let ch = if self.socket_type != SOCK_STREAM {
 			plaintext_ch
 		} else {
-			let (plain_tx, plain_rx) = plaintext_ch;
-			let ((stream_tx,stream_rx), socket_ch) = duplex_channel();
+			let tcp = if self.controlling_mode {
+				try_msg!("PseudoTcpSocket::connect() failed",
+				          PseudoTcpSocket::connect(plaintext_ch))
+			}
+			else {
+				PseudoTcpSocket::listen(plaintext_ch)
+			};
 
-			let stream = PseudoTcpStream::new_from(plain_tx, plain_rx,
-			                                       stream_tx, stream_rx);
-			stream.set_mtu(1400);
+			tcp.notify_mtu(1400);
 			//stream.set_no_delay(true);
 
-			if self.controlling_mode {
-				try_msg!("Could not establish reliable connection",
-				         stream.connect());
-			}
-
-			self.tcp_stream = Some(stream);
-
-			socket_ch
+			tcp.to_channel()
 		};
 
 		let sock = try_msg!("ChannelToSocket::new_from() failed",
@@ -178,7 +178,11 @@ impl Connection {
 		try!(ctx.set_certificate(&cert));
 		try!(ctx.set_private_key(&self.local_private_key));
 		try!(ctx.check_private_key());
-		try!(ctx.set_cipher_list(CIPHERS));
+
+		// TODO: replace with SliceConcatExt::connect() as soon as it becomes stable
+		let join = |s, &c| format!("{}{},", s, c);
+		let ciphers:String = CIPHERS.iter().fold(String::new(), join);
+		try!(ctx.set_cipher_list(&ciphers[..]));
 
 		let (my_plain_ch,your_plain_ch) = duplex_channel();
 

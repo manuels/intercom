@@ -16,6 +16,10 @@ libc = "*"
 env_logger = "*"
 docopt = "*"
 rustc-serialize = "*"
+pseudotcp = "0.1.0"
+ecdh = "0.0.10"
+nice = "0.0.22"
+nonblocking_socket = "*"
 
 [build-dependencies]
 gcc = "*"
@@ -25,24 +29,7 @@ pkg-config = "*"
 version = "*"
 optional = true
 
-[dependencies.ecdh]
-#git = "https://github.com/manuels/ecdh.rs.git"
-path = "../ecdh"
-
-[dependencies.pseudotcp]
-#git = "https://github.com/manuels/ecdh.rs.git"
-path = "../pseudotcp"
-
 [dependencies.openssl]
-#git = "https://github.com/sfackler/rust-openssl.git"
 path = "../rust-openssl/openssl"
 version = "0.6.1"
 features = ["dtlsv1"]
-
-[dependencies.nice]
-path = "../nice"
-#git = "https://github.com/manuels/libnice.rs.git"
-
-[dependencies.nonblocking_socket]
-path = "../nonblocking_socket"
-#git = "https://github.com/manuels/libnice.rs.git"

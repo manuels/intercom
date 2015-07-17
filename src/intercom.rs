@@ -1,4 +1,3 @@
-use std::io::Error as IoError;
 use std::error;
 use std::io::{Cursor,Write};
 use std::os::unix::io::RawFd;
@@ -206,7 +205,7 @@ impl Intercom {
 		                                       "org.manuel.BulletinBoard",
 		                                       "Get").unwrap();
 		msg.append_items(&[app_id, key.to_dbus_item()]);
-		let mut reply = try_msg!("",
+		let reply = try_msg!("",
 		                         conn.send_with_reply_and_block(msg, 60000));
 
 		match reply.get_items().get(0) {

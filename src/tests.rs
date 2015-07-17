@@ -52,7 +52,7 @@ fn test_intercom() {
 		                   MessageItem::Str(app_id1.to_string()),
 		                   MessageItem::UInt32(2*60)]);
 
-		let mut reply = conn.send_with_reply_and_block(msg, 2*60*1000).unwrap();
+		let reply = conn.send_with_reply_and_block(msg, 2*60*1000).unwrap();
 		match reply.get_items().pop().unwrap() {
 			MessageItem::UnixFd(fd) => { 
 				let fd = fd.into_fd();
@@ -78,7 +78,7 @@ fn test_intercom() {
 	                   MessageItem::Str(app_id2.to_string()),
 	                   MessageItem::UInt32(2*60)]);
 
-	let mut reply = conn.send_with_reply_and_block(msg, 2*60*1000).unwrap();
+	let reply = conn.send_with_reply_and_block(msg, 2*60*1000).unwrap();
 	match reply.get_items().pop().unwrap() {
 		MessageItem::UnixFd(fd) => {
 			let fd = fd.into_fd();

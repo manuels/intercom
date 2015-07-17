@@ -6,7 +6,7 @@ import socket
 import select
 import os
 
-proto = socket.SOCK_STREAM
+proto = socket.SOCK_DGRAM
 
 dbus_path = sys.argv[1] # 'org.manuel.Intercom'
 pub_key   = sys.argv[2]
@@ -28,23 +28,20 @@ def intercom(pub_key):
 
 	domain      = dbus.Int32(proto)
 	public_key  = dbus.String(pub_key)
-	app_id      = dbus.String("tcptunnel")
+	app_id      = dbus.String("udptunnel")
 	timeout_sec = dbus.UInt32(5*60)
 
 	result = intercom.ConnectToKey(domain, public_key, app_id+mode, app_id+other_mode, timeout_sec, dbus_interface='org.manuel.Intercom', timeout=5*60)
 	fd     = result.take()
 	sock   = socket.fromfd(fd, socket.AF_UNIX, proto, 0)
 	return sock
-
 if mode == 'connect':
 	print 'Listening on {}:{}'.format(host, port)
 	s = socket.socket(socket.AF_INET, proto)
 	s.bind((host, int(port)))
-	s.listen(1)
 
-	print 'Waiting for TCP connection.'
-	local_sock, addr = s.accept()
-	print 'TCP connection established.'
+	local_sock = s
+	print 'UDP connection open.'
 
 	print 'Waiting for Intercom.'
 	remote_sock      = intercom(pub_key)
@@ -55,10 +52,9 @@ elif mode == 'publish':
 	remote_sock      = intercom(pub_key)
 	print 'Intercom established.'
 
-	print 'Waiting for TCP connection.'
 	local_sock = socket.socket(socket.AF_INET, proto)
 	local_sock.connect((host, int(port)))	
-	print 'TCP connection established.'
+	print 'UDP connection open.'
 
 
 x = []
