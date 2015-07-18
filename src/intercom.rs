@@ -6,6 +6,7 @@ use std::thread::{spawn,sleep_ms};
 use std::sync::{Arc,Mutex};
 use std::fmt;
 use std::fmt::{Formatter,Display};
+use std::collections::HashMap;
 
 use rustc_serialize::hex::{ToHex,FromHex};
 
@@ -18,6 +19,7 @@ use time::Duration;
 use ecdh;
 use dbus::{Message,MessageItem,BusType};
 use dbus::Connection as DbusConnection;
+use parse_hosts::{Host};
 
 use utils::retry::retry;
 use utils::convert_dbus_item::ConvertDbusItem;
@@ -84,6 +86,7 @@ macro_rules! try_msg {
 }
 
 pub struct Intercom {
+	hosts:             HashMap<String,Host>,
 	local_private_key: ecdh::PrivateKey,
 }
 
@@ -101,16 +104,39 @@ fn convert_public_key(key: &ecdh::PublicKey) -> PKey {
 
 
 impl Intercom {
-	pub fn new(local_private_key: &Vec<u8>) -> Result<Intercom,()> {
+	pub fn new(local_private_key: &Vec<u8>, hosts: HashMap<String,Host>) -> Result<Intercom,()> {
 		let local_private_key = ecdh::PrivateKey::from_vec(&local_private_key).map_err(|_| ())
 			.unwrap_or_else(|_| ecdh::PrivateKey::generate().unwrap()); // TODO: just generate a new key?! really!?
 
 		let local_public_key = local_private_key.get_public_key();
-		debug!("My public key is: {:?}", local_public_key.to_vec().to_hex());
+		info!("My public key is: {:?}", local_public_key.to_vec().to_hex());
 
 		Ok(Intercom {
-			local_private_key: local_private_key
+			hosts:             hosts,
+			local_private_key: local_private_key,
 		})
+	}
+
+	pub fn connect_to_host(&self,
+	                       socket_type:       i32,
+	                       hostname:          String,
+	                       local_app_id:      String,
+	                       remote_app_id:     String,
+	                       timeout:           Duration)
+		-> Result<RawFd, ConnectError>
+	{
+		if let Some(pub_key) = self.hosts.get(&hostname[..]) {
+			self.connect(socket_type,
+			             &pub_key.public_key,
+			             local_app_id,
+			             remote_app_id,
+			             timeout)
+		} else {
+			Err(ConnectError {
+				description: format!("Unkown hostname {:?}", hostname),
+				cause: None,
+			})
+		}
 	}
 
 	pub fn connect_to_key(&self,
@@ -125,6 +151,17 @@ impl Intercom {
 		let remote_public_key = remote_public_key[..].from_hex().unwrap();
 		let remote_public_key = ecdh::PublicKey::from_vec(&remote_public_key).unwrap();
 
+		self.connect(socket_type, &remote_public_key, local_app_id, remote_app_id, timeout)
+	}
+
+	fn connect(&self,
+	           socket_type:       i32,
+	           remote_public_key: &ecdh::PublicKey,
+	           local_app_id:      String,
+	           remote_app_id:     String,
+	           timeout:           Duration)
+		-> Result<RawFd, ConnectError>
+	{
 		let shared_secret = SharedSecret::new(&self.local_private_key,
 		                                      &remote_public_key);
 

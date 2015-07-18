@@ -9,11 +9,11 @@ use rustc_serialize::hex::FromHex;
 
 use ecdh;
 
-struct Host {
-	public_key: ecdh::PublicKey,
+pub struct Host {
+	pub public_key: ecdh::PublicKey,
 }
 
-fn parse_hosts_file(fname: String) -> Result<HashMap<String,Host>> {
+pub fn parse_hosts_file(fname: String) -> Result<HashMap<String,Host>> {
 	let mut hashmap = HashMap::new();
 	let file        = try!(File::open(fname.clone()));
 

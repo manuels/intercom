@@ -31,5 +31,5 @@ optional = true
 
 [dependencies.openssl]
 path = "../rust-openssl/openssl"
-version = "0.6.1"
+#version = "0.6.1"
 features = ["dtlsv1"]

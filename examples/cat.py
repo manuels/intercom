@@ -7,17 +7,18 @@ import select
 import os
 
 dbus_path = sys.argv[1] # 'org.manuel.Intercom'
-pub_key   = sys.argv[2]
+hostname  = sys.argv[2]
+app_id    = sys.argv[3]
 
 bus = dbus.SessionBus()
 intercom = bus.get_object(dbus_path, "/", introspect=False)
 
 domain      = dbus.Int32(socket.SOCK_STREAM)
-public_key  = dbus.String(pub_key)
-app_id      = dbus.String("cat")
+hostname    = dbus.String(hostname)
+app_id      = dbus.String(app_id)
 timeout_sec = dbus.UInt32(5*60)
 
-result = intercom.Connect(domain, public_key, app_id, timeout_sec, dbus_interface='org.manuel.Intercom', timeout=5*60)
+result = intercom.ConnectToHost(domain, hostname, app_id, app_id, timeout_sec, dbus_interface='org.manuel.Intercom', timeout=5*60)
 fd     = result.take()
 sock   = socket.fromfd(fd, socket.AF_UNIX, socket.SOCK_STREAM, 0)
 

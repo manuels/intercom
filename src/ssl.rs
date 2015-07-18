@@ -108,13 +108,18 @@ impl SslChannel
 
 				let mut s = stream.lock().unwrap();
 
-				let len = s.read(&mut buf[..]).unwrap();
+				match s.read(&mut buf[..]) {
+					Ok(len) if len == 0 => continue,
+					Ok(len) => {
+						buf.truncate(len);
 
-				if len > 0 {
-					buf.truncate(len);
-
-					if plaintext_tx.send(buf.clone()).is_err() {
-						break
+						if plaintext_tx.send(buf.clone()).is_err() {
+							break
+						}
+					},
+					Err(err) => {
+						warn!("{:?}", err);
+						break;
 					}
 				}
 

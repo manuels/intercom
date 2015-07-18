@@ -45,6 +45,7 @@ use std::sync::Arc;
 
 use intercom::Intercom;
 use utils::ResultExpect;
+use parse_hosts::parse_hosts_file;
 
 static USAGE: &'static str = "
 Usage: intercom [options]
@@ -84,6 +85,14 @@ fn start_intercom<I:Iterator<Item=String>>(args: I) {
 	                  .and_then(|d| d.argv(args).decode())
 	                  .unwrap_or_else(|e| e.exit());
 
+	let hosts_fname = args.flag_hosts
+		.unwrap_or_else(|| {
+			let mut path = home.clone();
+			path.push("hosts".to_string());
+			path.as_path().to_str().unwrap().to_string()
+		});
+	let hosts = parse_hosts_file(hosts_fname).unwrap();
+
 	let private_key_fname = args.flag_private_key
 		.unwrap_or_else(|| {
 			let mut path = home.clone();
@@ -107,7 +116,7 @@ fn start_intercom<I:Iterator<Item=String>>(args: I) {
 	              .expect(&format!("Could not read private key file '{}'", private_key_fname)[..]);
 	local_private_key.truncate(len);
 
-	let intercom = Intercom::new(&local_private_key).unwrap();
+	let intercom = Intercom::new(&local_private_key, hosts).unwrap();
 
 	let dbus_service = args.flag_dbus;
 	DBusService::serve(Arc::new(intercom), &dbus_service[..], BusType::Session)

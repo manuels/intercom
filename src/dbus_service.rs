@@ -73,21 +73,21 @@ impl DBusService {
 
 		match (arg0, arg1, arg2, arg3, arg4) {
 			(Some(&MessageItem::Int32(socket_type)),
-			 Some(&MessageItem::Str(ref remote_public_key)),
+			 Some(&MessageItem::Str(ref hostname)),
 			 Some(&MessageItem::Str(ref local_app_id)),
 			 Some(&MessageItem::Str(ref remote_app_id)),
 			 Some(&MessageItem::UInt32(timeout_sec))) =>
 			{
-				unimplemented!();
-				/*
 				let timeout = Duration::seconds(timeout_sec as i64);
-				let fd = try!(intercom.connect(socket_type, remote_public_key.clone(),
-				                               app_id.clone(), timeout)
+				let fd = try!(intercom.connect_to_host(socket_type,
+				                                       hostname.clone(),
+				                                       local_app_id.clone(),
+				                                       remote_app_id.clone(),
+				                                       timeout)
 				              .map_err(|e| ("org.manuel.Intercom.InternalError", format!("{:?}", e))));
 
 				let result = vec![MessageItem::UnixFd(OwnedFd::new(fd))];
 				Ok(result)
-				*/
 			},
 	 		_ => {
 				let err = "org.manuel.Intercom.InternalError";

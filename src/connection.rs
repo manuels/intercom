@@ -201,8 +201,6 @@ impl Connection {
 		           expected_key: &Arc<PKey>)
 		-> bool
 	{
-		info!("ssl x509 callback");
-
 		match x509_ctx.get_current_cert() {
 			None => return false,
 			Some(cert) => {
