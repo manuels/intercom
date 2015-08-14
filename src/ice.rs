@@ -26,7 +26,6 @@ impl IceConnection {
 		thread::spawn(move || {
 			let (cred_tx, cred_rx) = my_cred_ch;
 			let recv_cb = move |buf:&[u8]| {
-				debug!("ice: forwarding in {}", buf.len());
 				my_tx.send(buf.to_vec()).unwrap();
 			};
 
@@ -50,7 +49,6 @@ impl IceConnection {
 			let component_id = 1;
 
 			for buf in my_rx {
-				debug!("ice: forwarding out {}", buf.len());
 				let len = stream.send(component_id, &buf[..]).unwrap();
 				assert_eq!(len, buf.len());
 			};

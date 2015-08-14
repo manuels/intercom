@@ -110,14 +110,7 @@ impl SslChannel
 
 				debug!("reading...");
 				let res = s.read(&mut buf[..]);
-				debug!("read1 {:?}", res);
-
-				let res = match res {
-					Ok(len) if len == 0 => s.read(&mut buf[..]),
-					Ok(len) => Ok(len),
-					Err(e)  => Err(e),
-				};
-				debug!("read2 {:?}", res);
+				debug!("read {:?}", res);
 
 				match res {
 					Ok(len) if len == 0 => (), //continue,

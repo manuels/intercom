@@ -153,13 +153,10 @@ impl Connection {
 		                         Self::verify_cert,
 		                         remote_public_key);
 
+		let ciphers:String = CIPHERS.connect(",");
 		try!(ctx.set_certificate(&cert));
 		try!(ctx.set_private_key(&self.local_private_key));
 		try!(ctx.check_private_key());
-
-		// TODO: replace with SliceConcatExt::connect() as soon as it becomes stable
-		let join = |s, &c| format!("{}{},", s, c);
-		let ciphers:String = CIPHERS.iter().fold(String::new(), join);
 		try!(ctx.set_cipher_list(&ciphers[..]));
 
 		let (my_plain_ch,your_plain_ch) = duplex_channel();
