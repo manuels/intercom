@@ -65,14 +65,26 @@ impl IceConnection {
 		}
 	}
 
-	pub fn to_channel(&mut self, cred: String) -> (Sender<Vec<u8>>, Receiver<Vec<u8>>) {
+	pub fn to_channel(&mut self, cred: String) -> Result<(Sender<Vec<u8>>, Receiver<Vec<u8>>),()> {
 		self.set_remote_credentials(cred);
 
-		let state = self.get_state();
-		state.wait_for(NiceComponentState::NICE_COMPONENT_STATE_READY).unwrap();
-		self.cred_tx.send(None);//.unwrap();
+		let state_list = [
+			NiceComponentState::NICE_COMPONENT_STATE_READY,
+			NiceComponentState::NICE_COMPONENT_STATE_FAILED,
+		];
 
-		(self.tx.clone(), self.rx.take().unwrap())
+		let state = self.get_state();
+		state.wait_for_in(&state_list).unwrap();
+		self.cred_tx.send(None).unwrap();
+
+		let s = state.get();
+		match s {
+			Ok(NiceComponentState::NICE_COMPONENT_STATE_READY) => {
+				Ok((self.tx.clone(), self.rx.take().unwrap()))
+			},
+			_ => Err(()),
+		}
+		
 	}
 
 	pub fn get_local_credentials(&self) -> String {

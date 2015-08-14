@@ -104,9 +104,11 @@ impl Connection {
 		-> Result<RawFd, ConnectError>
 	{
 		let cred = String::from_utf8(remote_credentials).unwrap();
-		let ciphertext_ch = self.ice.as_mut().unwrap().to_channel(cred);
+		let ciphertext_ch = try_msg!("ICE connec failed.",
+		                             self.ice.as_mut().unwrap().to_channel(cred),
+		                             None);
 
-		let plaintext_ch = try_msg!("SSL connection failed.",
+		let plaintext_ch = try_msg!("SSL connect failed.",
 		                            self.encrypt_connection(ciphertext_ch));
 
 		let proto = 0;
