@@ -104,14 +104,13 @@ impl Connection {
 		-> Result<RawFd, ConnectError>
 	{
 		let cred = String::from_utf8(remote_credentials).unwrap();
-		let ciphertext_ch = try_msg!("ICE connec failed.",
+		let ciphertext_ch = try_msg!("ICE connect failed.",
 		                             self.ice.as_mut().unwrap().to_channel(cred),
 		                             None);
 
 		let plaintext_ch = try_msg!("SSL connect failed.",
 		                            self.encrypt_connection(ciphertext_ch));
 
-		let proto = 0;
 		let ch = if self.socket_type != SOCK_STREAM {
 			plaintext_ch
 		} else {
@@ -129,6 +128,7 @@ impl Connection {
 			tcp.to_channel()
 		};
 
+		let proto = 0;
 		let sock = try_msg!("ChannelToSocket::new_from() failed",
 		                    ChannelToSocket::new_from(self.socket_type, proto, ch));
 
@@ -142,29 +142,24 @@ impl Connection {
 	                      ciphertext_ch: (Sender<Vec<u8>>, Receiver <Vec<u8>>))
 		-> Result<(Sender<Vec<u8>>, Receiver <Vec<u8>>), SslError>
 	{
-		let is_server         = self.controlling_mode.to_bool();
-		let remote_public_key = self.remote_public_key.clone();
+		let remote_public_key           = self.remote_public_key.clone();
+		let (my_plain_ch,your_plain_ch) = duplex_channel();
 
-		let flags = ssl::SSL_VERIFY_PEER |
-		            ssl::SSL_VERIFY_FAIL_IF_NO_PEER_CERT;
+		let ciphers = CIPHERS.connect(",");
+		let flags   = ssl::SSL_VERIFY_PEER | ssl::SSL_VERIFY_FAIL_IF_NO_PEER_CERT;
 
-		let cert = try!(Self::generate_cert(&self.local_private_key));
-
+		let cert    = try!(Self::generate_cert(&self.local_private_key));
 		let mut ctx = try!(SslContext::new(SslMethod::Dtlsv1));
-		ctx.set_verify_with_data(flags,
-		                         Self::verify_cert,
-		                         remote_public_key);
 
-		let ciphers:String = CIPHERS.connect(",");
+		ctx.set_verify_with_data(flags, Self::verify_cert, remote_public_key);
+
 		try!(ctx.set_certificate(&cert));
 		try!(ctx.set_private_key(&self.local_private_key));
 		try!(ctx.check_private_key());
 		try!(ctx.set_cipher_list(&ciphers[..]));
 
-		let (my_plain_ch,your_plain_ch) = duplex_channel();
-
 		let ssl = try!(SslChannel::new(&ctx,
-		                               is_server,
+		                               self.controlling_mode,
 		                               ciphertext_ch,
 		                               my_plain_ch));
 		drop(ssl);

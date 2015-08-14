@@ -14,20 +14,22 @@ use std::os::unix::io::AsRawFd;
 use utils::is_readable::IsReadable;
 use utils::socket::ChannelToSocket;
 use nonblocking_socket::NonBlockingSocket;
+use connection::ControllingMode;
 
 use syscalls;
 
 pub struct SslChannel
 {
-	stream: Arc<Mutex<SslStream<NonBlockingSocket<ChannelToSocket>>>>,
-	is_server: bool,
+	stream:           Arc<Mutex<SslStream<NonBlockingSocket<ChannelToSocket>>>>,
+	controlling_mode: ControllingMode,
 }
 
 impl SslChannel
 {
-	pub fn new(ctx: &SslContext, is_server: bool,
-	           ciphertext_ch: (Sender<Vec<u8>>,Receiver<Vec<u8>>),
-	           plaintext_ch:  (Sender<Vec<u8>>,Receiver<Vec<u8>>))
+	pub fn new(ctx:              &SslContext,
+	           controlling_mode: ControllingMode,
+	           ciphertext_ch:    (Sender<Vec<u8>>,Receiver<Vec<u8>>),
+	           plaintext_ch:     (Sender<Vec<u8>>,Receiver<Vec<u8>>))
 		-> Result<SslChannel,SslError>
 	{
 		let (ciphertext_tx, ciphertext_rx) = ciphertext_ch;
@@ -39,21 +41,21 @@ impl SslChannel
 
 		let (plaintext_tx,  plaintext_rx) = plaintext_ch;
 
-		debug!("{} SSL pre handshake 1/2", is_server);
+		debug!("{:?} SSL pre handshake 1/2", controlling_mode);
 
 		let ciphertext_fd = ciphertext.as_raw_fd();
 		let ciphertext_rw = NonBlockingSocket::new(ciphertext);
 
-		let stream = match is_server {
-			true  => try!(SslStream::accept_generic(ctx, ciphertext_rw)),
-			false => try!(SslStream::connect_generic(ctx, ciphertext_rw)),
+		let stream = match controlling_mode {
+			ControllingMode::Server => try!(SslStream::accept_generic(ctx, ciphertext_rw)),
+			ControllingMode::Client => try!(SslStream::connect_generic(ctx, ciphertext_rw)),
 		};
 
-		info!("{} SSL handshake done! 2/2", is_server);
+		info!("{:?} SSL handshake done! 2/2", controlling_mode);
 
 		let channel = SslChannel {
-			stream: Arc::new(Mutex::new(stream)),
-			is_server: is_server,
+			stream:           Arc::new(Mutex::new(stream)),
+			controlling_mode: controlling_mode,
 		};
 		syscalls::set_blocking(ciphertext_fd, false).unwrap();
 
@@ -67,7 +69,7 @@ impl SslChannel
 		-> io::Result<thread::JoinHandle<()>>
 	{
 		let stream = self.stream.clone();
-		let is_server = self.is_server;
+		let controlling_mode = self.controlling_mode;
 
 		thread::Builder::new().name("SslChannel::spawn_write".to_string()).spawn(move || {
 			for buf in plaintext_rx.iter() {
@@ -76,7 +78,7 @@ impl SslChannel
 				let len = (*s).write(&buf[..]).unwrap();
 				(*s).flush().unwrap();
 
-				debug!("{} plaintext_rx SSL_written len={}, buf.len={}", is_server, len, buf.len());
+				debug!("{:?} plaintext_rx SSL_written len={}, buf.len={}", controlling_mode, len, buf.len());
 				assert_eq!(len, buf.len())
 			}
 			unreachable!();
