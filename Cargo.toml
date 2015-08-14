@@ -10,16 +10,17 @@ default = ["dbus_service"]
 [dependencies]
 time = "*"
 byteorder = "*"
-log = "0.3.1"
-bitflags = "0.1.1"
+log = "*"
+bitflags = "*"
 libc = "*"
 env_logger = "*"
 docopt = "*"
 rustc-serialize = "*"
-pseudotcp = "0.1.0"
-ecdh = "0.0.10"
-nice = "0.0.22"
+pseudotcp = "*"
+ecdh = "*"
+nice = "*"
 nonblocking_socket = "*"
+condition_variable = "*"
 
 [build-dependencies]
 gcc = "*"
@@ -31,5 +32,4 @@ optional = true
 
 [dependencies.openssl]
 path = "../rust-openssl/openssl"
-#version = "0.6.1"
 features = ["dtlsv1"]

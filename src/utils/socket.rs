@@ -134,6 +134,8 @@ impl AsRawFd for ChannelToSocket {
 
 impl Read for ChannelToSocket {
 	fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
+		thread::sleep_ms(250); // TODO to prevent race conditions
+
 		let len = unsafe {
 			let fd  = self.as_raw_fd();
 			let ptr = buf.as_mut_ptr() as *mut c_void;
@@ -146,11 +148,14 @@ impl Read for ChannelToSocket {
 			let err = Error::last_os_error();
 
 			if err.raw_os_error().unwrap() == EAGAIN {
+				debug!("recv={}", EAGAIN);
 				Ok(0)
 			} else {
+				debug!("recv={}", err);
 				Err(err)
 			}
 		} else {
+			debug!("recv={}", len);
 			Ok(len as usize)
 		}
 	}

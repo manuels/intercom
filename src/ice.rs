@@ -1,73 +1,91 @@
-#![allow(dead_code)]
-
-use std::sync::mpsc::{Sender,Receiver};
-use std::vec::Vec;
 use std::thread;
-use libc;
+use std::sync::Arc;
+use std::sync::mpsc::{channel, Sender,Receiver};
 
-use nice::agent::NiceAgent;
-use nice::glib2::GMainLoop;
-use nice::glib2::bindings::GMainContext;
+use condition_variable::ConditionVariable;
+use utils::duplex_channel;
 
-pub struct IceAgent {
-	agent:    NiceAgent,
-	ctx:      *mut GMainContext,
-	stream:   u32,
-	state_rx: Receiver<libc::c_uint>,
+use nice::{Agent, NiceComponentState};
+pub use nice::ControllingMode;
+
+pub struct IceConnection {
+	tx: Sender<Vec<u8>>,
+	rx: Option<Receiver<Vec<u8>>>,
+	cred_tx: Sender<Option<String>>,
+	cred_rx: Receiver<String>,
+	state: Arc<ConditionVariable<NiceComponentState>>,
 }
 
-unsafe impl Send for IceAgent {}
-unsafe impl Sync for IceAgent {}
+impl IceConnection {
+	pub fn new(controlling_mode: ControllingMode) -> IceConnection {
+		let (your_ch, (my_tx, my_rx)): ((Sender<Vec<u8>>, _),(_,_)) = duplex_channel();
 
-impl IceAgent {
-	pub fn new(controlling_mode: bool) -> Result<IceAgent,()>
-	{
-		let mainloop  = GMainLoop::new();
-		let ctx       = mainloop.get_context();
-		let mut agent = try!(NiceAgent::new(ctx, controlling_mode));
+		let (your_cred_ch, my_cred_ch) = duplex_channel();
+		let (state_tx, state_rx) = channel();
 
-		let (stream, state_rx) = try!(agent.add_stream(Some("intercom")));
+		thread::spawn(move || {
+			let (cred_tx, cred_rx) = my_cred_ch;
+			let recv_cb = move |buf:&[u8]| {
+				debug!("ice: forwarding in {}", buf.len());
+				my_tx.send(buf.to_vec()).unwrap();
+			};
 
-		thread::Builder::new().name("IceAgent::GMainLoop".to_string()).spawn(move || {
-			mainloop.run();
-		}).unwrap();
+			let agent = Agent::new(controlling_mode);
+			let stream = agent.add_stream("intercom", 1, recv_cb).unwrap();
 
-		agent.gather_candidates(stream);
+			state_tx.send(stream.get_state()).unwrap();
 
-		Ok(IceAgent {
-			agent:    agent,
-			ctx:      ctx,
-			stream:   stream,
-			state_rx: state_rx
-		})
-	}
+			let credentials = agent.generate_local_sdp().unwrap();
+			cred_tx.send(credentials).unwrap();
 
-	pub fn get_local_credentials(&mut self) -> Result<Vec<u8>,()> {
-		let cred = try!(self.agent.generate_local_sdp());
-		Ok(cred.into_bytes())
-	}
+			for cred in cred_rx {
+				if let Some(remote_cred) = cred {
+					agent.parse_remote_sdp(&(remote_cred as String)[..]);
+				} else {
+					break
+				}
+			}
+			info!("won't accept any remote credentials anymore");
 
-	pub fn get_controlling_mode(&mut self) -> Result<bool,()> {
-		self.agent.get_controlling_mode()
-	}
+			let component_id = 1;
 
-	pub fn stream_to_channel(&mut self,
-		                     credentials: &Vec<u8>,
-	                         ch:          (Sender<Vec<u8>>,Receiver<Vec<u8>>))
-		-> Result<(), ()>
-	{
-		let (tx,rx) = ch;
-		
-		match String::from_utf8(credentials.clone()) {
-			Ok(cred) => {
-				debug!("remote credentials {:?}", cred);
-				self.agent.stream_to_channel(self.ctx, self.stream,
-				                             cred, &self.state_rx, tx, rx)
-			},
-			Err(_) => {
-				info!("Invalid remote credentials!");
-				Err(())
-			},
+			for buf in my_rx {
+				debug!("ice: forwarding out {}", buf.len());
+				let len = stream.send(component_id, &buf[..]).unwrap();
+				assert_eq!(len, buf.len());
+			};
+			unreachable!();
+		});
+
+		let (your_tx, your_rx) = your_ch;
+		IceConnection {
+			cred_tx: your_cred_ch.0,
+			cred_rx: your_cred_ch.1,
+			tx:      your_tx,
+			rx:      Some(your_rx),
+			state:   state_rx.recv().unwrap(),
 		}
+	}
+
+	pub fn to_channel(&mut self, cred: String) -> (Sender<Vec<u8>>, Receiver<Vec<u8>>) {
+		self.set_remote_credentials(cred);
+
+		let state = self.get_state();
+		state.wait_for(NiceComponentState::NICE_COMPONENT_STATE_READY).unwrap();
+		self.cred_tx.send(None);//.unwrap();
+
+		(self.tx.clone(), self.rx.take().unwrap())
+	}
+
+	pub fn get_local_credentials(&self) -> String {
+		self.cred_rx.recv().unwrap()
+	}
+
+	fn set_remote_credentials(&self, cred: String) {
+		self.cred_tx.send(Some(cred));//.unwrap();
+	}
+
+	pub fn get_state(&self) -> Arc<ConditionVariable<NiceComponentState>> {
+		self.state.clone()
 	}
 }

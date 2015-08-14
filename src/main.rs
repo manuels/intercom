@@ -11,6 +11,7 @@ extern crate env_logger;
 extern crate pseudotcp;
 extern crate rustc_serialize;
 extern crate docopt;
+extern crate condition_variable;
 
 #[cfg(feature="dbus")]
 extern crate dbus;
@@ -25,10 +26,10 @@ use std::os::unix::fs::PermissionsExt;
 
 #[cfg(feature="dbus")]
 mod dbus_service;
-mod ice;
 mod utils;
 mod syscalls;
 mod ssl;
+mod ice;
 mod intercom;
 mod connection;
 mod shared_secret;
@@ -44,7 +45,6 @@ use dbus::BusType;
 use std::sync::Arc;
 
 use intercom::Intercom;
-use utils::ResultExpect;
 use parse_hosts::parse_hosts_file;
 
 static USAGE: &'static str = "
@@ -100,11 +100,11 @@ fn start_intercom<I:Iterator<Item=String>>(args: I) {
 			path.as_path().to_str().unwrap().to_string()
 		});
 
-	let mut file = File::open(private_key_fname.clone())
-	                    .expect(&format!("Could not open private key file '{}'",
-	                    	                          private_key_fname)[..]);
+	let mut file = File::open(private_key_fname.clone()).unwrap();
+//	                    .expect(&format!("Could not open private key file '{}'",
+//	                    	                          private_key_fname)[..]);
 
-	let metadata = file.metadata().expect(&format!("Error reading permissions for '{}'", private_key_fname)[..]);
+	let metadata = file.metadata().unwrap();//.expect(&format!("Error reading permissions for '{}'", private_key_fname)[..]);
 	if metadata.permissions().mode() != 0o400 {
 		error!("Your private key file '{}' has {:o} permissions! It should be 400.",
 			private_key_fname, metadata.permissions().mode());
@@ -113,12 +113,14 @@ fn start_intercom<I:Iterator<Item=String>>(args: I) {
 
 	let mut local_private_key = vec![0; 1024];
 	let len = file.read(&mut local_private_key[..])
-	              .expect(&format!("Could not read private key file '{}'", private_key_fname)[..]);
+	              .unwrap();
+//	              .expect(&format!("Could not read private key file '{}'", private_key_fname)[..]);
 	local_private_key.truncate(len);
 
 	let intercom = Intercom::new(&local_private_key, hosts).unwrap();
 
 	let dbus_service = args.flag_dbus;
 	DBusService::serve(Arc::new(intercom), &dbus_service[..], BusType::Session)
-		.expect("Error listening on DBus");
+		.unwrap();
+//		.expect("Error listening on DBus");
 }

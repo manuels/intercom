@@ -22,9 +22,11 @@ impl IsReadable {
 				let &(ref lock, ref cvar) = &*my_readable;
 				let mut is_readable = lock.lock().unwrap();
 				
+				let len = buf.len();
 				tx.send(buf).unwrap();
 				
 				*is_readable = true;
+				debug!("is readable with len={}!", len);
 				cvar.notify_one();
     		}
 		}).unwrap();

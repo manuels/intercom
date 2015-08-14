@@ -45,8 +45,8 @@ impl SslChannel
 		let ciphertext_rw = NonBlockingSocket::new(ciphertext);
 
 		let stream = match is_server {
-			true  => try!(SslStream::new_server(ctx, ciphertext_rw)),
-			false => try!(SslStream::new(ctx, ciphertext_rw)),
+			true  => try!(SslStream::accept_generic(ctx, ciphertext_rw)),
+			false => try!(SslStream::connect_generic(ctx, ciphertext_rw)),
 		};
 
 		info!("{} SSL handshake done! 2/2", is_server);
@@ -79,7 +79,7 @@ impl SslChannel
 				debug!("{} plaintext_rx SSL_written len={}, buf.len={}", is_server, len, buf.len());
 				assert_eq!(len, buf.len())
 			}
-			panic!("fin");
+			unreachable!();
 		})
 	}
 
@@ -108,8 +108,19 @@ impl SslChannel
 
 				let mut s = stream.lock().unwrap();
 
-				match s.read(&mut buf[..]) {
-					Ok(len) if len == 0 => continue,
+				debug!("reading...");
+				let res = s.read(&mut buf[..]);
+				debug!("read1 {:?}", res);
+
+				let res = match res {
+					Ok(len) if len == 0 => s.read(&mut buf[..]),
+					Ok(len) => Ok(len),
+					Err(e)  => Err(e),
+				};
+				debug!("read2 {:?}", res);
+
+				match res {
+					Ok(len) if len == 0 => (), //continue,
 					Ok(len) => {
 						buf.truncate(len);
 
@@ -125,6 +136,7 @@ impl SslChannel
 
 				*readable = false;
 			}
+			unreachable!();
 		})
 	}
 }

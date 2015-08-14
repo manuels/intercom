@@ -1,4 +1,4 @@
-use std::sync::{Arc,Mutex,Condvar};
+use std::sync::Arc;
 use std::sync::mpsc::{Sender,Receiver};
 use std::os::unix::io::{RawFd,AsRawFd};
 
@@ -15,9 +15,10 @@ use pseudotcp::PseudoTcpSocket;
 use ssl::SslChannel;
 use utils::socket::ChannelToSocket;
 use intercom::ConnectError;
-use ice::IceAgent;
-use utils::duplex_channel;
+pub use nice::ControllingMode;
+use ice::IceConnection;
 
+use utils::duplex_channel;
 
 macro_rules! try_msg {
 	($desc:expr, $expr:expr) => (match $expr {
@@ -57,44 +58,28 @@ const CIPHERS:[&'static str; 12] = [
 	"ECDH-ECDSA-AES128-SHA"];    // <- this one is probably used
 
 pub struct Connection {
-	agent:             IceAgent,
+	ice:               Option<IceConnection>,
 	socket_type:       i32,
-	controlling_mode:  bool,
+	controlling_mode:  ControllingMode,
 	local_private_key: PKey,
 	remote_public_key: Arc<PKey>,
-	local_credentials: Arc<(Mutex<Option<String>>, Condvar)>,
 }
 
 impl Connection {
 	pub fn new(socket_type:       i32,
 	           local_private_key: PKey,
 	           remote_public_key: PKey,
-	           controlling_mode:  bool)
+	           controlling_mode:  ControllingMode)
 		-> Result<Connection, ConnectError>
 	{
-		let agent = try_msg!("IceAgent::new() failed.",
-		                     IceAgent::new(controlling_mode), None);
-
-		let mut conn = Connection {
-			agent:             agent,
+		let conn = Connection {
+			ice:               Some(IceConnection::new(controlling_mode)),
 			socket_type:       socket_type,
 			controlling_mode:  controlling_mode,
 			local_private_key: local_private_key,
 			remote_public_key: Arc::new(remote_public_key),
-			local_credentials: Arc::new((Mutex::new(None),Condvar::new())),
 		};
-
-		// TODO: async
-		{
-			let credentials = conn.agent.get_local_credentials().unwrap();
-			let credentials = String::from_utf8(credentials).unwrap();
-
-			let &(ref lock, ref cvar) = &*conn.local_credentials;
-			let mut var = lock.lock().unwrap();
-			*var = Some(credentials);
-			cvar.notify_all();
-		}
-
+		
 		Ok(conn)
 	}
 
@@ -112,22 +97,14 @@ impl Connection {
 	}
 
 	pub fn get_local_credentials(&self) -> String {
-		let &(ref lock, ref cvar) = &*self.local_credentials;
-		let mut credentials = lock.lock().unwrap();
-		while credentials.is_none() {
-			credentials = cvar.wait(credentials).unwrap();
-		}
-
-		credentials.clone().unwrap()
+		self.ice.as_ref().unwrap().get_local_credentials()
 	}
 
 	pub fn establish_connection(&mut self, remote_credentials: Vec<u8>)
 		-> Result<RawFd, ConnectError>
 	{
-		let (ciphertext_ch, ice_ch) = duplex_channel();
-		
-		try_msg!("ICE stream_to_channel() failed",
-		         self.agent.stream_to_channel(&remote_credentials, ice_ch), None);
+		let cred = String::from_utf8(remote_credentials).unwrap();
+		let ciphertext_ch = self.ice.as_mut().unwrap().to_channel(cred);
 
 		let plaintext_ch = try_msg!("SSL connection failed.",
 		                            self.encrypt_connection(ciphertext_ch));
@@ -136,7 +113,7 @@ impl Connection {
 		let ch = if self.socket_type != SOCK_STREAM {
 			plaintext_ch
 		} else {
-			let tcp = if self.controlling_mode {
+			let tcp = if self.controlling_mode == ControllingMode::Client {
 				try_msg!("PseudoTcpSocket::connect() failed",
 				          PseudoTcpSocket::connect(plaintext_ch))
 			}
@@ -152,9 +129,10 @@ impl Connection {
 
 		let sock = try_msg!("ChannelToSocket::new_from() failed",
 		                    ChannelToSocket::new_from(self.socket_type, proto, ch));
-		let fd = sock.as_raw_fd();
 
+		let fd = sock.as_raw_fd();
 		debug!("SSL fd={}", fd);
+		
 		Ok(fd)
 	}
 
@@ -162,18 +140,18 @@ impl Connection {
 	                      ciphertext_ch: (Sender<Vec<u8>>, Receiver <Vec<u8>>))
 		-> Result<(Sender<Vec<u8>>, Receiver <Vec<u8>>), SslError>
 	{
-		let is_server         = self.controlling_mode;
+		let is_server         = self.controlling_mode.to_bool();
 		let remote_public_key = self.remote_public_key.clone();
 
 		let flags = ssl::SSL_VERIFY_PEER |
 		            ssl::SSL_VERIFY_FAIL_IF_NO_PEER_CERT;
 
+		let cert = try!(Self::generate_cert(&self.local_private_key));
+
 		let mut ctx = try!(SslContext::new(SslMethod::Dtlsv1));
 		ctx.set_verify_with_data(flags,
 		                         Self::verify_cert,
 		                         remote_public_key);
-
-		let cert = try!(Self::generate_cert(&self.local_private_key));
 
 		try!(ctx.set_certificate(&cert));
 		try!(ctx.set_private_key(&self.local_private_key));
@@ -197,7 +175,7 @@ impl Connection {
 
 	#[allow(unused_variables)]
 	fn verify_cert(preverify_ok: bool,
-	               x509_ctx: &X509StoreContext,
+	               x509_ctx:     &X509StoreContext,
 		           expected_key: &Arc<PKey>)
 		-> bool
 	{

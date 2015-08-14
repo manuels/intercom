@@ -23,7 +23,7 @@ use parse_hosts::{Host};
 
 use utils::retry::retry;
 use utils::convert_dbus_item::ConvertDbusItem;
-use connection::Connection;
+use connection::{Connection, ControllingMode};
 use shared_secret::SharedSecret;
 
 const TIME_LEN: usize = 64/8;
@@ -166,7 +166,11 @@ impl Intercom {
 		                                      &remote_public_key);
 
 		let local_public_key = self.local_private_key.get_public_key();
-		let controlling_mode = local_public_key.to_vec() > remote_public_key.to_vec();
+		let controlling_mode = if local_public_key.to_vec() > remote_public_key.to_vec() {
+			ControllingMode::Client
+		} else {
+			ControllingMode::Server
+		};
 
 		let private_key = convert_private_key(&self.local_private_key).unwrap();
 		let public_key = convert_public_key(&remote_public_key);
@@ -204,6 +208,7 @@ impl Intercom {
 
 				sleep_ms(60*1000);
 			}
+			debug!("stopping publishing");
 		});
 
 		let retry_time = Duration::seconds(5);
@@ -284,7 +289,7 @@ impl Intercom {
 						match read_age(&timestamp.to_vec()) {
 							None => Err(ConnectError::new("Remote credentials not found.")),
 							Some(age_sec) => {
-								info!("Lastest remote credentials are {}sec old", age_sec);
+								info!("Latest remote credentials are {}sec old", age_sec);
 
 								Ok(credentials.to_vec())
 							}
