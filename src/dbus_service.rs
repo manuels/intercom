@@ -24,15 +24,15 @@ impl DBusService {
 		let mut o = ObjectPath::new(&conn, "/", true);
 		o.insert_interface(INTERFACE, Interface::new(
 			vec![
-				Method::new("ConnectToHost",
+				Method::new("ConnectToPeer",
 					vec![Argument::new("socket_type",   "i"),
-					     Argument::new("hostname",      "s"),
+					     Argument::new("peername",      "s"),
 					     Argument::new("local_app_id",  "s"),
 					     Argument::new("remote_app_id", "s"),
 					     Argument::new("timeout_sec",   "u"),
 					],
 					vec![Argument::new("fd", "h")],
-					Box::new(move |msg| Self::connect_to_host(i1.clone(), msg))),
+					Box::new(move |msg| Self::connect_to_peer(i1.clone(), msg))),
 				Method::new("ConnectToKey",
 					vec![Argument::new("socket_type",       "i"),
 					     Argument::new("remote_public_key", "s"),
@@ -60,7 +60,7 @@ impl DBusService {
 
 	#[allow(unused_variables)]
 	#[allow(dead_code)]
-	fn connect_to_host(intercom: Arc<Intercom>, msg: &mut Message)
+	fn connect_to_peer(intercom: Arc<Intercom>, msg: &mut Message)
 		-> Result<Vec<MessageItem>, (&'static str, String)>
 	{
 		let args = msg.get_items();
@@ -73,14 +73,14 @@ impl DBusService {
 
 		match (arg0, arg1, arg2, arg3, arg4) {
 			(Some(&MessageItem::Int32(socket_type)),
-			 Some(&MessageItem::Str(ref hostname)),
+			 Some(&MessageItem::Str(ref peername)),
 			 Some(&MessageItem::Str(ref local_app_id)),
 			 Some(&MessageItem::Str(ref remote_app_id)),
 			 Some(&MessageItem::UInt32(timeout_sec))) =>
 			{
 				let timeout = Duration::seconds(timeout_sec as i64);
-				let fd = try!(intercom.connect_to_host(socket_type,
-				                                       hostname.clone(),
+				let fd = try!(intercom.connect_to_peer(socket_type,
+				                                       peername.clone(),
 				                                       local_app_id.clone(),
 				                                       remote_app_id.clone(),
 				                                       timeout)

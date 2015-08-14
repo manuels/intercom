@@ -20,33 +20,27 @@ impl IceConnection {
 	pub fn new(controlling_mode: ControllingMode) -> IceConnection {
 		let (your_ch, (my_tx, my_rx)): ((Sender<Vec<u8>>, _),(_,_)) = duplex_channel();
 
+		let (state_tx, state_rx)       = channel();
 		let (your_cred_ch, my_cred_ch) = duplex_channel();
-		let (state_tx, state_rx) = channel();
 
 		thread::spawn(move || {
+			let component_id = 1;
 			let (cred_tx, cred_rx) = my_cred_ch;
-			let recv_cb = move |buf:&[u8]| {
-				my_tx.send(buf.to_vec()).unwrap();
-			};
+			let recv_cb = move |buf:&[u8]| my_tx.send(buf.to_vec()).unwrap();
 
-			let agent = Agent::new(controlling_mode);
+			let agent  = Agent::new(controlling_mode);
+
 			let stream = agent.add_stream("intercom", 1, recv_cb).unwrap();
-
 			state_tx.send(stream.get_state()).unwrap();
 
 			let credentials = agent.generate_local_sdp().unwrap();
 			cred_tx.send(credentials).unwrap();
 
-			for cred in cred_rx {
-				if let Some(remote_cred) = cred {
-					agent.parse_remote_sdp(&(remote_cred as String)[..]);
-				} else {
-					break
-				}
+			for cred in cred_rx.iter().take_while(Option::is_some) {
+				let cred:String = cred.unwrap();
+				agent.parse_remote_sdp(&cred[..]);
 			}
 			info!("won't accept any remote credentials anymore");
-
-			let component_id = 1;
 
 			for buf in my_rx {
 				let len = stream.send(component_id, &buf[..]).unwrap();

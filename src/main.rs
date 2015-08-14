@@ -33,7 +33,7 @@ mod ice;
 mod intercom;
 mod connection;
 mod shared_secret;
-mod parse_hosts;
+mod parse_peers;
 #[cfg(test)]
 mod tests;
 
@@ -45,7 +45,7 @@ use dbus::BusType;
 use std::sync::Arc;
 
 use intercom::Intercom;
-use parse_hosts::parse_hosts_file;
+use parse_peers::parse_peers_file;
 
 static USAGE: &'static str = "
 Usage: intercom [options]
@@ -54,15 +54,15 @@ Options:
     --private-key <file>   Use private key from a file
                            (default: $HOME/.config/intercom/private_key).
     --dbus <service>       DBus service name [default: org.manuel.intercom].
-    --hosts <file>         Use hostnames from a file
-                           (default: $HOME/.config/intercom/hosts).
+    --peers <file>         Use peernames from a file
+                           (default: $HOME/.config/intercom/peers).
     --help                 Print this help.
 ";
 
 #[derive(RustcDecodable,Debug)]
 struct Args {
   flag_private_key: Option<String>,
-  flag_hosts:       Option<String>,
+  flag_peers:       Option<String>,
   flag_dbus:        String,
 }
 
@@ -85,13 +85,13 @@ fn start_intercom<I:Iterator<Item=String>>(args: I) {
 	                  .and_then(|d| d.argv(args).decode())
 	                  .unwrap_or_else(|e| e.exit());
 
-	let hosts_fname = args.flag_hosts
+	let peers_fname = args.flag_peers
 		.unwrap_or_else(|| {
 			let mut path = home.clone();
-			path.push("hosts".to_string());
+			path.push("peers".to_string());
 			path.as_path().to_str().unwrap().to_string()
 		});
-	let hosts = parse_hosts_file(hosts_fname).unwrap();
+	let peers = parse_peers_file(peers_fname).unwrap();
 
 	let private_key_fname = args.flag_private_key
 		.unwrap_or_else(|| {
@@ -117,7 +117,7 @@ fn start_intercom<I:Iterator<Item=String>>(args: I) {
 //	              .expect(&format!("Could not read private key file '{}'", private_key_fname)[..]);
 	local_private_key.truncate(len);
 
-	let intercom = Intercom::new(&local_private_key, hosts).unwrap();
+	let intercom = Intercom::new(&local_private_key, peers).unwrap();
 
 	let dbus_service = args.flag_dbus;
 	DBusService::serve(Arc::new(intercom), &dbus_service[..], BusType::Session)
