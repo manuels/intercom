@@ -247,8 +247,7 @@ impl Intercom {
 		                                       "org.manuel.BulletinBoard",
 		                                       "Get").unwrap();
 		msg.append_items(&[app_id, key.to_dbus_item()]);
-		let reply = try_msg!("",
-		                         conn.send_with_reply_and_block(msg, 60000));
+		let reply = try_msg!("", conn.send_with_reply_and_block(msg, 60000));
 
 		match reply.get_items().get(0) {
 			Some(&MessageItem::Array(ref items, ref t)) if t == "ay" => {

@@ -1,6 +1,7 @@
 use std::sync::mpsc::{channel,Sender,Receiver};
 use std::fmt::Debug;
 
+pub mod posix;
 pub mod socket;
 pub mod is_readable;
 pub mod retry;

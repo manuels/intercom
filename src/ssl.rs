@@ -15,6 +15,7 @@ use utils::is_readable::IsReadable;
 use utils::socket::ChannelToSocket;
 use nonblocking_socket::NonBlockingSocket;
 use connection::ControllingMode;
+use connection::ControllingMode::{Server, Client};
 
 use syscalls;
 
@@ -47,8 +48,8 @@ impl SslChannel
 		let ciphertext_rw = NonBlockingSocket::new(ciphertext);
 
 		let stream = match controlling_mode {
-			ControllingMode::Server => try!(SslStream::accept_generic(ctx, ciphertext_rw)),
-			ControllingMode::Client => try!(SslStream::connect_generic(ctx, ciphertext_rw)),
+			Server => try!(SslStream::accept_generic(ctx, ciphertext_rw)),
+			Client => try!(SslStream::connect_generic(ctx, ciphertext_rw)),
 		};
 
 		info!("{:?} SSL handshake done! 2/2", controlling_mode);

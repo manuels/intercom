@@ -6,7 +6,11 @@ use condition_variable::ConditionVariable;
 use utils::duplex_channel;
 
 use nice::{Agent, NiceComponentState};
+
 pub use nice::ControllingMode;
+use nice::NiceComponentState::NICE_COMPONENT_STATE_READY;
+use nice::NiceComponentState::NICE_COMPONENT_STATE_FAILED;
+
 
 pub struct IceConnection {
 	tx: Sender<Vec<u8>>,
@@ -29,18 +33,24 @@ impl IceConnection {
 			let recv_cb = move |buf:&[u8]| my_tx.send(buf.to_vec()).unwrap();
 
 			let agent  = Agent::new(controlling_mode);
-
 			let stream = agent.add_stream("intercom", 1, recv_cb).unwrap();
-			state_tx.send(stream.get_state()).unwrap();
+			let state  = stream.get_state();
+
+			state_tx.send(state.clone()).unwrap();
 
 			let credentials = agent.generate_local_sdp().unwrap();
 			cred_tx.send(credentials).unwrap();
 
-			for cred in cred_rx.iter().take_while(Option::is_some) {
-				let cred:String = cred.unwrap();
-				agent.parse_remote_sdp(&cred[..]);
+			while state.get().unwrap() != NICE_COMPONENT_STATE_READY {
+				for cred in cred_rx.iter().take_while(Option::is_some) {
+					let cred:String = cred.unwrap();
+					agent.parse_remote_sdp(&cred[..]);
+				}
+
+				state.wait_for_in(&[NICE_COMPONENT_STATE_READY,
+				                    NICE_COMPONENT_STATE_FAILED]).unwrap();
 			}
-			info!("won't accept any remote credentials anymore");
+			info!("won't accept any remote credentials anymore: state={:?}", state.get().unwrap());
 
 			for buf in my_rx {
 				let len = stream.send(component_id, &buf[..]).unwrap();
@@ -62,10 +72,7 @@ impl IceConnection {
 	pub fn to_channel(&mut self, cred: String) -> Result<(Sender<Vec<u8>>, Receiver<Vec<u8>>),()> {
 		self.set_remote_credentials(cred);
 
-		let state_list = [
-			NiceComponentState::NICE_COMPONENT_STATE_READY,
-			NiceComponentState::NICE_COMPONENT_STATE_FAILED,
-		];
+		let state_list = [NICE_COMPONENT_STATE_READY, NICE_COMPONENT_STATE_FAILED];
 
 		let state = self.get_state();
 		state.wait_for_in(&state_list).unwrap();
@@ -73,7 +80,7 @@ impl IceConnection {
 
 		let s = state.get();
 		match s {
-			Ok(NiceComponentState::NICE_COMPONENT_STATE_READY) => {
+			Ok(NICE_COMPONENT_STATE_READY) => {
 				Ok((self.tx.clone(), self.rx.take().unwrap()))
 			},
 			_ => Err(()),

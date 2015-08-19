@@ -16,6 +16,7 @@ use ssl::SslChannel;
 use utils::socket::ChannelToSocket;
 use intercom::ConnectError;
 pub use nice::ControllingMode;
+use nice::ControllingMode::{Server, Client};
 use ice::IceConnection;
 
 use utils::duplex_channel;
@@ -114,12 +115,10 @@ impl Connection {
 		let ch = if self.socket_type != SOCK_STREAM {
 			plaintext_ch
 		} else {
-			let tcp = if self.controlling_mode == ControllingMode::Client {
-				try_msg!("PseudoTcpSocket::connect() failed",
-				          PseudoTcpSocket::connect(plaintext_ch))
-			}
-			else {
-				PseudoTcpSocket::listen(plaintext_ch)
+			let tcp = match self.controlling_mode {
+				Client => try_msg!("PseudoTcpSocket::connect() failed",
+				                   PseudoTcpSocket::connect(plaintext_ch)),
+				Server => PseudoTcpSocket::listen(plaintext_ch),
 			};
 
 			tcp.notify_mtu(1400);
