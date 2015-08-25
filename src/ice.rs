@@ -33,7 +33,7 @@ impl IceConnection {
 			let recv_cb = move |buf:&[u8]| my_tx.send(buf.to_vec()).unwrap();
 
 			let agent  = Agent::new(controlling_mode);
-			let stream = agent.add_stream("intercom", 1, recv_cb).unwrap();
+			let stream = agent.add_stream("video", 1, recv_cb).unwrap();
 			let state  = stream.get_state();
 
 			state_tx.send(state.clone()).unwrap();

@@ -82,7 +82,7 @@ impl SslChannel
 				debug!("{:?} plaintext_rx SSL_written len={}, buf.len={}", controlling_mode, len, buf.len());
 				assert_eq!(len, buf.len())
 			}
-			unreachable!();
+			debug!("SslChannel::spawn_write");
 		})
 	}
 

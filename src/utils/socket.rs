@@ -1,4 +1,4 @@
-use utils::posix::Posix;
+use utils::posix::{Posix, SHUT_RDWR};
 
 use libc::types::os::arch::c95::{c_int,size_t};
 use libc::types::common::c95::c_void;
@@ -9,7 +9,6 @@ use std::vec::Vec;
 use std::thread;
 use std::os::unix::io::{AsRawFd,RawFd};
 
-use libc::funcs::bsd43::{send,recv};
 use libc::funcs::posix88::unistd::close;
 use libc::consts::os::bsd44::AF_UNIX;
 use libc::consts::os::bsd44::SOCK_STREAM;
@@ -20,6 +19,14 @@ use syscalls;
 
 struct Fd {
 	fd: RawFd,
+}
+
+impl Clone for Fd {
+	fn clone(&self) -> Self {
+		unsafe {
+			Fd {fd: self.dup().unwrap()}
+		}
+	}
 }
 
 impl AsRawFd for Fd {
@@ -52,12 +59,15 @@ impl ChannelToSocket {
 	                ch:       (Sender<Vec<u8>>,Receiver<Vec<u8>>))
 		-> Result<ChannelToSocket>
 	{
-		let (tx, rx) = ch;
+		let (tx1, rx) = ch;
+		let tx2 = tx1.clone();
 
 		let (my_fd, your_fd) = try!(syscalls::socketpair(AF_UNIX, typ, protocol));
 
-		Self::spawn_recv(tx, Fd {fd: my_fd}, typ).unwrap();
-		Self::spawn_send(rx, Fd {fd: my_fd}).unwrap();
+		let fd1 = Fd {fd: my_fd};
+		let fd2 = fd1.clone();
+		Self::spawn_recv(tx1, fd1, typ).unwrap();
+		Self::spawn_send(tx2, rx, fd2).unwrap();
 
 		Ok(ChannelToSocket {
 			fd:  your_fd,
@@ -74,15 +84,21 @@ impl ChannelToSocket {
 			loop {
 				let mut buf = vec![0u8; 16*1024];
 
+				info!("recv()...");
 				match (typ, fd.recv(&mut buf)) {
 					(SOCK_STREAM, Ok(len)) if len == 0 => {
-						debug!("Socket closed by us.");
+						info!("Socket closed by us.");
 						break;
 					},
 					(_, Ok(len)) => {
+						info!("recv()'ed {} bytes", len);
 						buf.truncate(len);
-						tx.send(buf);
-						continue
+						
+						if tx.send(buf).is_ok() {
+							continue
+						} else {
+							break
+						}
 					}
 					(_, Err(e)) => {
 						warn!("Could not forward data: {:?}", e);
@@ -90,11 +106,13 @@ impl ChannelToSocket {
 					}
 				}
 			}
-			info!("fin (fd was closed)");
+
+			let err = fd.shutdown(SHUT_RDWR);
+			info!("fin (rx was closed): {:?}", err);
 		})
 	}
 
-	fn spawn_send(rx: Receiver<Vec<u8>>, fd: Fd)
+	fn spawn_send(tx: Sender<Vec<u8>>, rx: Receiver<Vec<u8>>, fd: Fd)
 		-> Result<thread::JoinHandle<()>>
 	{
 		let name = String::from("ChannelToSocket::new_from send");
@@ -115,8 +133,8 @@ impl ChannelToSocket {
 				}
 			}
 
-			fd.close();
-			info!("fin (rx was closed)");
+			let err = fd.shutdown(SHUT_RDWR);
+			info!("fin (rx was closed): {:?}", err);
 		})
 	}
 }
@@ -155,16 +173,22 @@ impl Write for ChannelToSocket {
 }
 
 mod tests {
-	use super::ChannelToSocket;
-	use libc::consts::os::bsd44::SOCK_STREAM;
 	use std::io::{Read,Write};
 	use std::thread;
+	use std::sync::{Arc,Barrier};
+
+	use libc::consts::os::bsd44::SOCK_STREAM;
+	use libc::consts::os::bsd44::AF_UNIX;
+	
+	use nonblocking_socket::NonBlockingSocket;
+	use super::ChannelToSocket;
+	use utils::posix::{Posix, SHUT_RDWR};
 
 	#[test]
 	fn test_close_write_tx() {
 		if let Ok((mut c2s, (tx, rx))) = ChannelToSocket::new(SOCK_STREAM, 0) {
 			drop(tx);
-			thread::sleep_ms(3000);
+			thread::sleep_ms(3500);
 
 			let buf = vec![0u8];
 			assert!(c2s.write(&buf[..]).is_err());
@@ -172,6 +196,7 @@ mod tests {
 			unreachable!();
 		}
 	}
+
 	#[test]
 	fn test_close_read_tx() {
 		if let Ok((mut c2s, (tx, rx))) = ChannelToSocket::new(SOCK_STREAM, 0) {
@@ -184,7 +209,6 @@ mod tests {
 			unreachable!();
 		}
 	}
-
 	/*
 	#[test]
 	fn test_close_rx() {
@@ -192,14 +216,64 @@ mod tests {
 		
 		if let Ok((mut c2s, (tx, rx))) = ChannelToSocket::new(SOCK_STREAM, 0) {
 			drop(rx);
+			thread::sleep_ms(3500);
 
 			// This will still work, because:
 			// write() -> recv() -> try(tx.send()) -> fail -> close(fd)
-			assert!(c2s.write(&buf[..]).is_ok());
+			let res = c2s.write(&buf[..]);
+			error!("{:?}", res);
+			assert!(res.is_err());
 			assert!(c2s.read(&mut buf[..]).is_err());
 		} else {
 			unreachable!();
 		}
 	}
 	*/
+	#[test]
+	fn test_shutdown_recv() {
+		::env_logger::init().unwrap();
+
+		let barrier1 = Arc::new(Barrier::new(2));
+		let barrier2 = barrier1.clone();
+
+		let (fda1, fdb) = ::syscalls::socketpair(AF_UNIX, SOCK_STREAM, 0).unwrap();
+
+		let fda1 = super::Fd {fd: fda1};
+		let fda2 = fda1.clone();
+
+		thread::spawn(move || {
+			fda1.shutdown(SHUT_RDWR).unwrap();
+			barrier1.wait();
+		});
+
+		barrier2.wait();
+		let mut buf = vec![0;10];
+		match fda2.recv(&mut buf[..]) {
+			Ok(len) if len == 0 => (),
+			_ => unreachable!(),
+		}
+	}
+
+	#[test]
+	fn test_shutdown_send() {
+		let barrier1 = Arc::new(Barrier::new(2));
+		let barrier2 = barrier1.clone();
+
+		let (fda1, fdb) = ::syscalls::socketpair(AF_UNIX, SOCK_STREAM, 0).unwrap();
+
+		let fda1 = super::Fd {fd: fda1};
+		let fda2 = fda1.clone();
+
+		thread::spawn(move || {
+			fda1.shutdown(SHUT_RDWR).unwrap();
+			barrier1.wait();
+		});
+
+		barrier2.wait();
+		let mut buf = vec![0;10];
+		match fda2.send(&buf[..]) {
+			Ok(len) => panic!("Ok({}) should be an Err()", len),
+			Err(err) => (),
+		}
+	}
 }

@@ -117,14 +117,16 @@ impl Connection {
 		} else {
 			let tcp = match self.controlling_mode {
 				Client => try_msg!("PseudoTcpSocket::connect() failed",
-				                   PseudoTcpSocket::connect(plaintext_ch)),
-				Server => PseudoTcpSocket::listen(plaintext_ch),
+				                   PseudoTcpSocket::connect(plaintext_ch, String::from("Cli"))),
+				Server => PseudoTcpSocket::listen(plaintext_ch, String::from("Svr")),
 			};
 
 			tcp.notify_mtu(1400);
 			//stream.set_no_delay(true);
 
 			tcp.to_channel()
+
+			// TODO: when to close tcp?
 		};
 
 		let proto = 0;

@@ -1,7 +1,9 @@
 use std::io::{Error,Result};
 use std::os::unix::io::AsRawFd;
 
-use libc::funcs::bsd43::{send,recv};
+use libc::funcs::posix88::unistd::dup;
+pub use libc::consts::os::bsd44::SHUT_RDWR;
+use libc::funcs::bsd43::{send,recv,shutdown};
 use libc::funcs::posix88::unistd::close;
 use libc::types::os::arch::c95::{c_int,size_t};
 use libc::types::common::c95::c_void;
@@ -41,6 +43,28 @@ pub trait Posix: AsRawFd {
 		};
 		if res == 0 {
 			Ok(())
+		} else {
+			Err(Error::last_os_error())
+		}
+	}
+
+	fn shutdown(&self, flags: c_int) -> Result<()> {
+		let res = unsafe {
+			shutdown(self.as_raw_fd(), flags)
+		};
+		if res == 0 {
+			Ok(())
+		} else {
+			Err(Error::last_os_error())
+		}
+	}
+
+	fn dup(&self) -> Result<c_int> {
+		let res = unsafe {
+			dup(self.as_raw_fd())
+		};
+		if res > -1 {
+			Ok(res)
 		} else {
 			Err(Error::last_os_error())
 		}

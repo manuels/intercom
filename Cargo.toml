@@ -17,9 +17,11 @@ env_logger = "*"
 docopt = "*"
 rustc-serialize = "*"
 ecdh = "*"
-nice = "*"
 nonblocking_socket = "*"
-condition_variable = "*"
+
+[dependencies.condition_variable]
+version = "*"
+path = "../condition_variable"
 
 [build-dependencies]
 gcc = "*"
@@ -35,3 +37,6 @@ features = ["dtlsv1"]
 
 [dependencies.pseudotcp]
 path = "../pseudotcp"
+
+[dependencies.nice]
+path = "../nice"

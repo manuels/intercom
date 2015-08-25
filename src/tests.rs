@@ -2,9 +2,9 @@ extern crate env_logger;
 
 use std::thread::{spawn,sleep_ms};
 #[allow(unused_imports)]
-
-use libc::consts::os::bsd44::{SOCK_DGRAM, SOCK_STREAM};
+use libc::funcs::posix88::unistd::close;
 use libc::funcs::bsd43::{send,recv};
+use libc::consts::os::bsd44::{SOCK_DGRAM, SOCK_STREAM};
 use libc::{size_t,c_void};
 
 use dbus::Connection as DbusConnection;
@@ -65,6 +65,9 @@ fn test_intercom() {
 				};
 				assert_eq!(buf.len(), len as usize);
 				debug!("sent.");
+				unsafe {
+					close(fd);
+				}
 			},
 			_ => assert!(false),
 		}
