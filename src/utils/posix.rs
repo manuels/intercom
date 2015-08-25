@@ -5,7 +5,7 @@ use libc::funcs::posix88::unistd::dup;
 pub use libc::consts::os::bsd44::SHUT_RDWR;
 use libc::funcs::bsd43::{send,recv,shutdown};
 use libc::funcs::posix88::unistd::close;
-use libc::types::os::arch::c95::{c_int,size_t};
+use libc::types::os::arch::c95::c_int;
 use libc::types::common::c95::c_void;
 
 pub trait Posix: AsRawFd {

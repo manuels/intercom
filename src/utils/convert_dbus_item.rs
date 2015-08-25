@@ -1,7 +1,7 @@
 use dbus::MessageItem;
 use std::borrow::Cow;
 
-pub trait ConvertDbusItem {
+pub trait ConvertDbusItem: Sized {
 	fn from_dbus_item(item: &MessageItem) -> Option<Self>;
 	fn to_dbus_item(&self) -> MessageItem;
 }

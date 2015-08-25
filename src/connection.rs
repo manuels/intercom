@@ -146,7 +146,7 @@ impl Connection {
 		let remote_public_key           = self.remote_public_key.clone();
 		let (my_plain_ch,your_plain_ch) = duplex_channel();
 
-		let ciphers = CIPHERS.connect(",");
+		let ciphers = CIPHERS.join(",");
 		let flags   = ssl::SSL_VERIFY_PEER | ssl::SSL_VERIFY_FAIL_IF_NO_PEER_CERT;
 
 		let cert    = try!(Self::generate_cert(&self.local_private_key));

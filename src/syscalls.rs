@@ -48,7 +48,7 @@ pub fn set_blocking(fd: c_int, blocking: bool) -> Result<()> {
 
 mod tests {
 	use libc::types::os::arch::c95::size_t;
-	use libc::funcs::bsd43::{send,recv};
+	use libc::funcs::bsd43::send;
 	use libc::funcs::posix88::unistd::close;
 	use libc::consts::os::bsd44::AF_UNIX;
 	use libc::consts::os::bsd44::{SOCK_STREAM, SOCK_DGRAM};
@@ -76,7 +76,6 @@ mod tests {
 			let barrier2 = barrier1.clone();
 
 			let s = s1;
-			let sxx = s1;
 			thread::spawn(move || {
 				unsafe { close(s) };
 				barrier2.wait();
