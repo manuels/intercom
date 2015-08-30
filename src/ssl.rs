@@ -132,7 +132,7 @@ impl SslChannel
 
 				*readable = false;
 			}
-			unreachable!();
+			info!("SslChannel::spawn_read: read loop ended.");
 		})
 	}
 }

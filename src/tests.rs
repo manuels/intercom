@@ -65,6 +65,7 @@ fn test_intercom() {
 				};
 				assert_eq!(buf.len(), len as usize);
 				debug!("sent.");
+				sleep_ms(3000);
 				unsafe {
 					close(fd);
 				}
@@ -103,6 +104,7 @@ fn test_intercom() {
 				info!("Received {:?}", buf);
 				assert_eq!(buf, "foo".as_bytes());
 			}
+			sleep_ms(3000);
 		},
 		_ => assert!(false),
 	}

@@ -19,10 +19,6 @@ rustc-serialize = "*"
 ecdh = "*"
 nonblocking_socket = "*"
 
-[dependencies.condition_variable]
-version = "*"
-path = "../condition_variable"
-
 [build-dependencies]
 gcc = "*"
 pkg-config = "*"
@@ -33,10 +29,17 @@ optional = true
 
 [dependencies.openssl]
 path = "../rust-openssl/openssl"
+version = "*"
 features = ["dtlsv1"]
 
 [dependencies.pseudotcp]
-path = "../pseudotcp"
+version = "*"
+#path = "../pseudotcp"
 
 [dependencies.nice]
-path = "../nice"
+version = "*"
+#path = "../nice"
+
+[dependencies.condition_variable]
+version = "*"
+#path = "../condition_variable"

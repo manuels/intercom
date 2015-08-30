@@ -268,7 +268,8 @@ impl Intercom {
 					timestamp.map(|ts| now.sec - ts)
 				};
 
-				values.sort_by(|x,y| {
+				values.sort_by(|x, y| {
+					// sort by ascending age
 					let a = read_age(x);
 					let b = read_age(y);
 
@@ -280,6 +281,7 @@ impl Intercom {
 					}
 				});
 
+				values.reverse();
 				match values.pop() {
 					None => Err(ConnectError::new("Remote credentials not found.")),
 					Some(latest) => {

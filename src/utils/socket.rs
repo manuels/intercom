@@ -227,8 +227,6 @@ mod tests {
 	*/
 	#[test]
 	fn test_shutdown_recv() {
-		::env_logger::init().unwrap();
-
 		let barrier1 = Arc::new(Barrier::new(2));
 		let barrier2 = barrier1.clone();
 
